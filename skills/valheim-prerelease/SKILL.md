@@ -70,6 +70,9 @@ a bug (paid half, paid twice, an idol counted, an item given before payment).
 ## 4. Multiplayer and dedicated servers
 
 - Saved changes only from the owner (`ZNetView.IsOwner()`); other players ask through an RPC.
+- Anything that moves and carries your ZDO keys (a creature, a cart, a ship) is resent whole with every step: measure its ZDO after a long
+  session (**valheim-pitfalls**, "Keep a moving object's ZDO small"), and play a while with a second player near it, watching other
+  creatures for lag.
 - A dedicated server has no player (`Player.m_localPlayer` is null), no camera and nothing is drawn: guard UI and visual code, and
   never let a visual failure stop a piece or item being registered.
 - If the mod adds pieces or items, the server needs it too, and every player needs the same version.

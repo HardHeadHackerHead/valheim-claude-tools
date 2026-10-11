@@ -1,6 +1,6 @@
 ---
 name: valheim-pitfalls
-description: The Valheim modding mistakes that have cost players items and buildings, and how to avoid each. Use when writing code that registers pieces or items, changes inventories, saves data, handles death, containers, keys, recipes or crafting costs.
+description: The Valheim modding mistakes that have cost players items and buildings or lagged multiplayer, and how to avoid each. Use when writing code that registers pieces or items, changes inventories, saves data, writes ZDO values or sends data between players, handles death, containers, keys, recipes or crafting costs.
 ---
 
 # Valheim modding pitfalls
@@ -56,6 +56,23 @@ the next reload.
 `Container.Load` rebuilds the inventory from the save whenever the ZDO's revision changes, and any `ZDO.Set` on that object changes it.
 A container on an object that saves other things often (a creature) is rebuilt over and over: in-place changes lost, held items point at
 old copies. Skip the reload on the owner after loading once.
+
+## Keep a moving object's ZDO small
+
+The game sends a ZDO **whole** (every key) to each player near it whenever its revision changes. Any `ZDO.Set` that changes a value bumps
+the revision, and so does every position change of a moving object (`ZDO.InternalSetPosition`): a walking creature, a cart or a ship is
+resent many times a second. Each player gets at most about 10 KB of ZDOs per send (`ZDOMan.SendZDOs`, 20 times a second), nearest first,
+so one big ZDO takes the whole budget and every other creature's updates arrive seconds late. AICompanion kept its companion's journal,
+tally and missions on the companion's ZDO: 11-13 KB, resent with every step, and players saw lag in multiplayer. So:
+- **Nothing big or growing on an object that moves** (logs, histories, lists that get longer). Keep it on the player's character
+  (`Player.m_customData`) or another object that stays still, and send what changes in small routed RPCs, the whole of it only when a game
+  asks.
+- **Values that change all the time** (skill progress, stamina, a status that can flip back and forth) go into the ZDO every few seconds
+  or on a real change, not on every frame or hit. Each write resends the whole ZDO even when the object stands still.
+- **Measure it**: `var pkg = new ZPackage(); zdo.Serialize(pkg); pkg.Size()` is what each player is sent, each time. Check it with
+  everything your mod writes on the object, after a long play session (strings that grow show only then); a Container's items count too.
+- **News sent to everyone on a timer** (party panels, positions): once a second is plenty, and skip a send when nothing visible changed.
+  The server relays each routed RPC to every player.
 
 ## Count a recipe's cost as the game does
 
