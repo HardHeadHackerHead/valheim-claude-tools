@@ -20,6 +20,9 @@ A placed piece is saved by its prefab name. If the **host** loads a zone before 
 - an `ObjectDB.CopyOtherDB` postfix (the main menu's copy of `ObjectDB`, which the character preview uses),
 - your plugin's `Awake` when `ZNetScene.instance` / `ObjectDB.instance` already exist (after a reload).
 Registering twice must be harmless (check by name first). On unload, remove only entries that still point at your prefab.
+Take the piece off the build-menu list you put it on, keeping that `PieceTable` from registration: at the main menu (a reload there) the
+hammer can't be looked up, but its list lives on. A destroyed piece left on it makes `Player.UpdateKnownRecipesList` throw on every
+change to the bag, between `DoCrafting`'s `AddItem` and `ConsumeResources`: every craft is free. Sweep `p == null` entries when registering.
 
 ## The player's inventory height is reset at every spawn
 
