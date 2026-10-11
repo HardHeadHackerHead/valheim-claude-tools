@@ -21,8 +21,8 @@ namespace ClaudeTools
     public partial class Plugin
     {
         private const string UiUsage =
-            "screen list [text] | texts [text] | overlaps [text] | click <words> [n] | type <text> | submit | slider <n> <value> | use [name] [alt] | key <tab|escape|e|key name> [frames=1]: " +
-            "see and use what is on screen (buttons, item cells, text boxes, sliders) by their words; use presses E on what the player looks at (as the game does); keys reach mods' windows (the game's own reading of E may not see them: use screen use); click, type, slider, use and key act as the player " +
+            "screen list [text] | texts [text] | overlaps [text] | click <words> [n] | type <text> | submit | slider <n> <value> | use [name] [alt] | key <tab|escape|e|key name> [frames=1] | pause: " +
+            "see and use what is on screen (buttons, item cells, text boxes, sliders) by their words; use presses E on what the player looks at (as the game does); pause opens the game's pause menu (what Escape does with nothing open: at the end of a session, as the player asked); keys reach mods' windows (the game's own reading of E may not see them: use screen use); click, type, slider, use and key act as the player " +
             "(only where cheats are allowed)";
 
         private void RegisterUiCommands() => Builtin("screen", UiUsage, (a, output, error) => UiCommand(a, output, error));
@@ -162,6 +162,15 @@ namespace ClaudeTools
                     interact.Invoke(p, new object[] { target, false, alt });
                     yield return null; yield return null;
                     output(new JObject { ["used"] = target.name.Replace("(Clone)", ""), ["on"] = Whole(target), ["alt"] = alt, ["byCrosshair"] = target == hover });
+                    yield break;
+                }
+                case "pause":
+                {
+                    // the game's own pause menu, on purpose ("screen key escape" closes one it opened by mistake): single player pauses
+                    if (global::Menu.instance == null) { error("the game's menu isn't there (at the main menu?)"); yield break; }
+                    if (!global::Menu.IsVisible()) global::Menu.instance.Show();
+                    yield return null;
+                    output(new JObject { ["paused"] = global::Menu.IsVisible() });
                     yield break;
                 }
                 case "key":
