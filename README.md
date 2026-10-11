@@ -25,7 +25,7 @@ rule in the skills and every check in `modcheck` is a real bug that cost players
 | **[templates/project/](templates/project/)** | A whole mod project to start from: game references, shared code, an example mod in three languages, a translation check and `publish.ps1` for the mod manager. |
 | **[mods/ClaudeTools/](mods/ClaudeTools/)** | The in-game mod: your assistant's eyes and hands in the game (below). It also carries all of the above and writes it into `BepInEx/claude`. |
 | **modkit** ([tools/ModKit](tools/ModKit/)) | The mod-maker commands as a command-line program, for when the game is closed (Windows, Linux, Mac). |
-| **[docs/modding-pitfalls.md](docs/modding-pitfalls.md)** | The bugs that lost players' items and buildings, and how to avoid them. |
+| **[docs/](docs/)** | [getting-started.md](docs/getting-started.md) (the setup and the loop we work in) and [modding-pitfalls.md](docs/modding-pitfalls.md) (the bugs that lost players' items and buildings, and how to avoid them). |
 | **[tools/](tools/)** | `check_translations.py`; PatchMap (builds the list of what the top 100 mods patch); the Python kits for 3D models and blueprints. |
 
 ## 🛠️ For mod makers
@@ -92,6 +92,8 @@ Updates: `/plugin marketplace update valheim-claude-tools`, or switch on auto-up
 [templates/](templates/). The mod adds the game-side half: the commands, `modcheck` against the real game, and pictures.
 
 ## 🚀 Getting started
+
+**New to this?** [docs/getting-started.md](docs/getting-started.md) is the whole setup, step by step, and the loop we work in.
 
 **Making a mod:**
 1. Install the skills (above), and copy [templates/project](templates/project/) (or `BepInEx/claude/templates/project` once the mod
