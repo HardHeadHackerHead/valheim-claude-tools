@@ -13,7 +13,7 @@ The Claude Tools mod also writes them to `BepInEx/claude/.claude/skills`, so Cla
 | [valheim-pitfalls](valheim-pitfalls/SKILL.md) | Avoid the mistakes that cost players items and buildings: registering pieces and items, inventories, saved data, death, chests, multiplayer. |
 | [valheim-prerelease](valheim-prerelease/SKILL.md) | Check a mod before a release: the automatic check, a real restart, multiplayer and a dedicated server, clashes, the README. |
 | [valheim-fix-errors](valheim-fix-errors/SKILL.md) | Find out from the BepInEx log why the game or a mod is broken, which mod and patch caused it, and fix or report it. |
-| [valheim-thunderstore](valheim-thunderstore/SKILL.md) | Release or update a mod on Thunderstore: the package, manifest, icon, README, the rules, being found. |
+| [valheim-thunderstore](valheim-thunderstore/SKILL.md) | Release or update a mod on Thunderstore: the package, manifest, icon, README, the rules, and being found (a description players' search words reach, the categories they filter by). |
 
 The skills use Claude Tools' commands (`modcheck`, `game`, `who`, `clashes`, pictures...) when the mod is installed, and modkit (the same
 commands on the command line) when the game is closed. Every rule in them comes from a real bug in [our mods](https://github.com/HardHeadHackerHead/valheim-mods).

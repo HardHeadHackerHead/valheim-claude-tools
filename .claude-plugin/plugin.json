@@ -1,7 +1,7 @@
 {
   "name": "valheim-modding",
   "description": "8 skills for making Valheim mods: starting one, the game's real code, other mods, the game's look, pitfalls, the pre-release check, fixing errors, releasing on Thunderstore. They use the Claude Tools mod's commands when it is installed.",
-  "version": "1.2.13",
+  "version": "1.2.14",
   "author": {
     "name": "Quad H (HardHeadHackerHead)",
     "url": "https://github.com/HardHeadHackerHead"

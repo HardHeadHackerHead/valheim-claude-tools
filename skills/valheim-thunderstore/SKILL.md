@@ -86,15 +86,48 @@ It also makes, in `thunderstore-build/` (add it to `.gitignore`):
 replace a mod's in-game icon with the package icon. Otherwise `icon.png` beside the csproj.
 
 Read `thunderstore.toml` the first time: the description comes from `DESCRIPTION.txt` (or is marked TODO), categories start as
-`mods` and `ai-generated` (add fitting ones: `building`, `crafting`, `gear`, `utility`, `tools`, `transportation`, `client-side` (only
-when nobody else needs it), `server-side`... `modkit package` lists them if one is wrong). Edits to the toml are kept: modkit only
-updates the version and dependencies. Fix every **problem** and run it again until there are none.
+`mods` and `ai-generated` only, which `modkit package` refuses (next section). Edits to the toml are kept: modkit only updates the
+version and dependencies. Fix every **problem** and run it again until there are none.
 
-**Being found.** Thunderstore's search reads only the package's name and description (not the README or the categories), and matches
-the words as typed: a description that says "chests" isn't found by "containers". Put the words players search for in the description
-(what other mods for the same job call it: "quick slots", "auto fuel", "salvage", "follower NPC"). Categories are the filters: add
-`client-side` and/or `server-side` (server admins filter by them), and the current game update's category (`deep-north-update` in 2026,
-a site section of its own) once the mod is tested on that version; add the next one when a game update comes and the mod still works.
+## 3b. Make it findable: the description and the categories (every first upload, and look again at each update)
+
+A package nobody finds is wasted work, and the first upload is when it's newest and listed at the top. **Never upload with the
+categories and description modkit made: write them.** What Thunderstore's search does (checked against the site, October 2026):
+
+- It reads **only the package's name and its description**. Not the README, not the categories, not the changelog. A word that is only
+  in the README ("saddlebags") doesn't find the mod.
+- It matches **parts of words** ("ski" finds "Skis", "boat" finds "motorboat") and needs **every word typed** ("fast boat" finds a
+  description with both). It does not join or split words: "jetski" finds nothing that only says "jet ski".
+- The description is also the line under the name in r2modman's and Thunderstore Mod Manager's lists: it must still read as a sentence.
+
+**The description** (250 characters at most: use most of them):
+1. Start with what it is, in the words players type: the thing ("jet ski", "follower NPC", "quick slots"), not a pun or the mod's name.
+2. Add the other spellings and names people use for it ("jet ski (jetski)", "motorboat", "speedboat"; "auto fuel"/"auto refuel";
+   "salvage"/"recycle"/"deconstruct"): the words other mods for the same job use in their names and descriptions.
+3. Then its main features as nouns players search for ("saddlebag storage", "paint colours", "map pins").
+4. Leave out "for Valheim" and "mod" (every package there is a Valheim mod), and "Quad's" or your team's name (already shown).
+5. Test the words: `https://thunderstore.io/api/cyberstorm/listing/valheim/?q=<word>` lists what each finds (its `count`, and each
+   result's `name`, `description`, `categories`). A word with 0 results that players would type (a word for exactly your thing) is
+   worth having; a word with hundreds says nothing.
+
+**The categories** (the filters on the site; players narrow the list with them). The 100 most-downloaded Valheim mods have about 6.
+Look up two or three popular mods that do something like yours (the listing above shows their `categories`) and tag every one that
+truly fits, never one that doesn't (moderators and players notice):
+
+| Kind | Categories |
+|---|---|
+| What it is (at least one) | `building`, `crafting`, `gear`, `enemies`, `npcs`, `world-generation`, `transportation`, `vehicles`, `pvp`, `audio`, `skins`, `tweaks`, `utility`, `tools`, `misc`, `libraries`, `language` (translations only) |
+| Where it runs | `client-side` (each player installs it), `server-side` (the server needs it): both when everyone and the server need it, as for anything that adds pieces, items or creatures |
+| The game update | `deep-north-update` (the newest update, a section of the site of its own) once tested on the current game version; add the next update's when it comes and the mod still works |
+| Always | `mods`, and `ai-generated` when AI helped (Thunderstore's rule) |
+
+For example, a jet ski: `mods`, `vehicles`, `transportation`, `server-side`, `client-side`, `deep-north-update`, `ai-generated`. The
+popular boat mods (ValheimRAFT, OdinShip, BoatAdditions) all carry `transportation` and `vehicles`.
+
+`modkit package` checks this: a **problem** when no category says what the mod is, **warnings** for neither client-side nor
+server-side, no current-update category, or fewer than 5 categories, and **notes** for a short description or one that spends words on
+"Valheim". The package's **name** is searched too: keep the thing in it (`Quads_Jet_Skis`, not `Quads_Splash`). It can't change after
+the first upload.
 
 **A repository with several mods**: each mod is its own package (one `thunderstore.toml` per mod folder, the same team). A small script
 that, for each mod, builds it, runs `modkit package`, `tcli build` and `modkit package check`, and publishes only the mods named on its
@@ -116,7 +149,7 @@ Add `thunderstore-build/` to `.gitignore`.
 
 ## 5. Publish (ask first)
 
-Show the player what will go up (package name, version, the changelog lines, categories) and ask. Then, with `TCLI_AUTH_TOKEN` set:
+Show the player what will go up (package name, version, the description, the categories, the changelog lines) and ask. Then, with `TCLI_AUTH_TOKEN` set:
 
 ```
 tcli publish --config-path <mod folder>/thunderstore.toml --file <that zip>
@@ -128,7 +161,8 @@ It can take a few minutes to show on the site. Never pass the token on the comma
 ## 6. Updates
 
 Raise the plugin's `Version` (semantic: 1.0.10 is higher than 1.0.9), add the changelog lines, rebuild, then `modkit package` (it updates
-the toml), `tcli build`, check, test, ask, publish. Never change `name` (a new name is a new package) or the team. Players on
+the toml), read the description and categories again (3b: new features bring new search words; a new game update its category),
+`tcli build`, check, test, ask, publish. Never change `name` (a new name is a new package) or the team. Players on
 Thunderstore restart the game after updating, so the reload level doesn't matter there; it still matters for your own testing.
 
 To retire a mod: deprecate it on its Thunderstore page (it stays installable for existing modpacks).

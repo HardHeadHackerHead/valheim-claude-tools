@@ -34,6 +34,38 @@ namespace ClaudeTools
             "mistlands-update", "ashlands-update", "bog-witch-update", "deep-north-update", "hildirs-request-update",
         };
 
+        // the categories that say what a mod is (the rest say where it runs, which game update, or that AI made it)
+        private static readonly string[] KindCategories =
+        {
+            "tools", "libraries", "misc", "tweaks", "utility", "building", "crafting", "gear", "enemies", "npcs", "world-generation",
+            "transportation", "vehicles", "pvp", "audio", "language", "skins",
+        };
+        private const string CurrentUpdate = "deep-north-update";   // the game's newest update category (a section of the site of its own): change it when a new one comes
+
+        /// <summary>
+        /// Being found: Thunderstore's search reads only the name and the description (parts of words, every word typed; not the README or
+        /// the categories), and players narrow the list with categories. Checked 2026-10-11 against the site: the 100 most-downloaded Valheim
+        /// mods have 6 categories (median); "jetski" found nothing while "jet ski" found the jet ski mod.
+        /// </summary>
+        private static void Discoverable(List<string> cats, string desc, Findings f)
+        {
+            if (!cats.Any(c => KindCategories.Contains(c)))
+                f.Add("problem", "No category says what the mod is: players filtering by category never see it.",
+                      "Add every one that fits to [publish.categories] valheim: " + string.Join(", ", KindCategories) + " (a boat: transportation, vehicles; a station: crafting, building).");
+            if (!cats.Contains("client-side") && !cats.Contains("server-side"))
+                f.Add("warning", "Neither client-side nor server-side: server admins filter by them.",
+                      "Needed by every player and the server: both. Only by the one playing: client-side. Only on the server: server-side.");
+            if (!cats.Contains(CurrentUpdate))
+                f.Add("warning", $"Not in \"{CurrentUpdate}\", the current game update's category (a section of the site of its own).", "Add it once the mod is tested on the current game version.");
+            if (cats.Count < 5)
+                f.Add("warning", $"Only {cats.Count} categories (the most-downloaded Valheim mods have about 6).", "Add every category that truly fits; never one that doesn't.");
+            if (desc.Length > 0 && desc.Length < 150 && !desc.StartsWith("TODO"))
+                f.Add("note", $"The description uses {desc.Length} of its 250 characters, and it's all search reads besides the name.",
+                      "Add the words players type for this kind of mod, other spellings too (\"jet ski\" and \"jetski\", \"boat\", \"ship\").");
+            if (Regex.IsMatch(desc, @"\b(for|in) Valheim\b", RegexOptions.IgnoreCase))
+                f.Add("note", "The description says \"Valheim\": every package there is for Valheim, so those words find nothing new.", "Spend them on words players search for.");
+        }
+
         private sealed class Findings
         {
             public readonly List<JObject> List = new List<JObject>();
@@ -130,6 +162,7 @@ namespace ClaudeTools
             }
             foreach (JToken c in cats.Where(c => !KnownCategories.Contains((string)c)))
                 f.Add("problem", $"\"{c}\" isn't one of Thunderstore's Valheim categories.", "Use: " + string.Join(", ", KnownCategories));
+            Discoverable(cats.Select(c => (string)c).ToList(), desc, f);
 
             // ---- what's already published ----
             JObject online = Published(nsName, name, out string offline);
