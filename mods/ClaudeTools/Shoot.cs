@@ -82,14 +82,7 @@ namespace ClaudeTools
                     if (!CheatsAllowed()) { error(CheatRefusal("shoot near")); yield break; }
                     string name = a.Length > 2 ? a[2].ToLowerInvariant() : "";
                     float gap = Mathf.Clamp(F(a, 3, 1.6f), 0.8f, 6f);
-                    Transform target = null;
-                    float bd = 60f;
-                    foreach (ZNetView v in UnityEngine.Object.FindObjectsOfType<ZNetView>())
-                    {
-                        if (v == null || !v.name.ToLowerInvariant().Contains(name)) continue;
-                        float d = Vector3.Distance(v.transform.position, player.transform.position);
-                        if (d < bd) { bd = d; target = v.transform; }
-                    }
+                    Transform target = NearestNamed(name, player.transform.position, 60f);
                     if (target == null) { error($"no \"{name}\" within 60 m"); yield break; }
                     Vector3 at = target.position, ahead = target.forward;
                     Bounds body = new Bounds(target.position, Vector3.one * 0.5f);
@@ -129,14 +122,7 @@ namespace ClaudeTools
                     // little above and looking down; the player beside it, turned to face the camera; the zoom fitted to the piece's size
                     if (!CheatsAllowed()) { error(CheatRefusal("shoot pose")); yield break; }
                     string name = a.Length > 2 ? a[2].ToLowerInvariant() : "";
-                    Transform target = null;
-                    float bd = 60f;
-                    foreach (ZNetView v in UnityEngine.Object.FindObjectsOfType<ZNetView>())
-                    {
-                        if (v == null || !v.name.ToLowerInvariant().Contains(name)) continue;
-                        float d = Vector3.Distance(v.transform.position, player.transform.position);
-                        if (d < bd) { bd = d; target = v.transform; }
-                    }
+                    Transform target = NearestNamed(name, player.transform.position, 60f);
                     if (target == null) { error($"no \"{name}\" within 60 m"); yield break; }
                     // how big it is: its renderers' bounds
                     Bounds size = new Bounds(target.position, Vector3.one);
@@ -249,6 +235,24 @@ namespace ClaudeTools
                     error(ShootUsage);
                     yield break;
             }
+        }
+
+        /// <summary>The nearest object within reach whose prefab is called exactly that ("piece_workbench"), or else whose name contains it.
+        /// Exact first: "piece_workbench" mustn't find a workbench extension (piece_workbench_ext1) a metre closer.</summary>
+        internal static Transform NearestNamed(string name, Vector3 from, float reach)
+        {
+            Transform exact = null, part = null;
+            float de = reach, dp = reach;
+            foreach (ZNetView v in UnityEngine.Object.FindObjectsOfType<ZNetView>())
+            {
+                if (v == null) continue;
+                string n = v.name.Replace("(Clone)", "").ToLowerInvariant();
+                if (!n.Contains(name)) continue;
+                float d = Vector3.Distance(v.transform.position, from);
+                if (n == name) { if (d < de) { de = d; exact = v.transform; } }
+                else if (d < dp) { dp = d; part = v.transform; }
+            }
+            return exact != null ? exact : part;
         }
 
         /// <summary>The newest copy of a type: after a hot reload the old copy's assembly is still loaded, but nothing uses it any more.</summary>

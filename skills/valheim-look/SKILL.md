@@ -71,8 +71,11 @@ shows a whole window. The Recycler's and the Bounty Board's windows are built wi
   `localRotation = Quaternion.Euler(0, 0, -degrees)`). Show keys the game's way, `[<color=yellow><b>$KEY_Use</b></color>]` through
   `Localization.instance.Localize`, not drawn key caps.
 - **Boxes taller than the letters:** with `overflowMode` Ellipsis (or Truncate), TMP hides a whole line that is even a little taller
-  than its box, and Averia's lines are about 1.3 times the font size. Make a one-line label at least 1.4 times its font size tall
-  (PartyHud's names never showed in 18-high boxes at 16 pt). `GameUi.Line` does it.
+  than its box, and Averia's lines are about 1.3 times the font size. Make a one-line label **1.8 times its font size tall**
+  (PartyHud's names never showed in 18-high boxes at 16 pt). The game's own fonts have no Chinese, Japanese or Korean: those letters
+  come from a fallback font with taller lines, so a box that fits English and German (1.4 times) shows nothing at all in Chinese.
+  `GameUi.Line` makes its box 1.8 times and keeps centred text centred. Check every window in Chinese once (`language Chinese`): a
+  heading or a status line that is simply missing is this.
 - **Colours** that match the game's: text (0.94, 0.9, 0.82), dim (0.75, 0.72, 0.66), warm title (1, 0.86, 0.55), gold (1, 0.78, 0.3),
   warning (1, 0.55, 0.35), good (0.6, 0.9, 0.55); rich-text accent `#ffd27a`, notes `<size=70%><color=#bdb7a9>`. Title in Norse about
   34 pt with the braid line under it; a selected tab in gold.

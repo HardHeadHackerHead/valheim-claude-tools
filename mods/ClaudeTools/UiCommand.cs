@@ -136,17 +136,25 @@ namespace ClaudeTools
                     string want = alt ? rest.Trim().Substring(0, rest.Trim().Length - 3).Trim().ToLowerInvariant() : rest.Trim().ToLowerInvariant();
                     GameObject hover = p.GetHoverObject(), target = null;
                     string Whole(GameObject g) => (g.GetComponentInParent<Piece>()?.name ?? g.transform.root.name).Replace("(Clone)", "");
+                    bool HoverHas(bool exact) => hover != null && (exact ? Whole(hover).ToLowerInvariant() == want
+                        : Whole(hover).ToLowerInvariant().Contains(want) || hover.name.ToLowerInvariant().Contains(want));
                     if (want.Length == 0) target = hover;
-                    else if (hover != null && (Whole(hover).ToLowerInvariant().Contains(want) || hover.name.ToLowerInvariant().Contains(want))) target = hover;
+                    else if (HoverHas(true)) target = hover;
                     else
                     {
-                        float best = 3f;
+                        // the nearest within reach called exactly that ("piece_workbench", not the extension beside it), or else containing it
+                        GameObject exact = null, part = null;
+                        float de = 3f, dp = 3f;
                         foreach (MonoBehaviour mb in UnityEngine.Object.FindObjectsOfType<MonoBehaviour>())
                         {
-                            if (!(mb is Interactable) || !(Whole(mb.gameObject).ToLowerInvariant().Contains(want) || mb.name.ToLowerInvariant().Contains(want))) continue;
+                            if (!(mb is Interactable)) continue;
+                            string whole = Whole(mb.gameObject).ToLowerInvariant();
+                            if (!(whole.Contains(want) || mb.name.ToLowerInvariant().Contains(want))) continue;
                             float d = Vector3.Distance(mb.transform.position, p.transform.position);
-                            if (d < best) { best = d; target = mb.gameObject; }
+                            if (whole == want) { if (d < de) { de = d; exact = mb.gameObject; } }
+                            else if (d < dp) { dp = d; part = mb.gameObject; }
                         }
+                        target = exact != null ? exact : HoverHas(false) ? hover : part;
                     }
                     if (target == null) { error(want.Length == 0 ? "the player isn't looking at anything to use" : $"no \"{want}\" within reach (3 m): shoot near {want} first"); yield break; }
                     var interact = AccessTools.Method(typeof(Player), "Interact", new[] { typeof(GameObject), typeof(bool), typeof(bool) });
