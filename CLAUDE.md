@@ -16,7 +16,8 @@ says what each part is.
   may reload at once while the game runs: `-p:DeployToGame=false` to only build).
 - Our mods that use these tools live in https://github.com/HardHeadHackerHead/valheim-mods.
 - The repo is also a Claude Code plugin (`.claude-plugin/`: the marketplace and the plugin `valheim-modding`, whose skills are
-  `skills/`). Keep `version` in `.claude-plugin/plugin.json` the same as the mod's `Version`, and check with
+  `skills/`). **Raise `version` in `.claude-plugin/plugin.json` with every change to a skill**: an installed
+  plugin only updates when that number changes (it is the skills' own version, separate from the mod's). Check with
   `claude plugin validate .` (the one warning, about this CLAUDE.md not being plugin context, is expected).
 - After changing a skill, run `python tools/check_skills.py`: a description with an unquoted `: ` breaks the skill's header and it is
   never used by itself (two of ours were like that until 1.2.6, and `claude plugin validate` doesn't notice).
