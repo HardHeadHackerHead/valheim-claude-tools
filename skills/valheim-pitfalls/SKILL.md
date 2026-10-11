@@ -74,6 +74,31 @@ tally and missions on the companion's ZDO: 11-13 KB, resent with every step, and
 - **News sent to everyone on a timer** (party panels, positions): once a second is plenty, and skip a send when nothing visible changed.
   The server relays each routed RPC to every player.
 
+## A removed ZDO key stays on every other game
+
+`ZDO.RemoveInt` (and the other `Remove...`) only removes the key on this game. Other games apply a ZDO with `ZDO.Deserialize`, which only
+adds or overwrites keys: a removed key stays there, on the server, and for players who join later. (Parkour cleared its pose this way,
+and other players saw the player frozen in their last move.) Never remove a key others read: write an explicit "none" value.
+
+## An attached player lets go on any input
+
+`Player.SetControls` calls `AttachStop()` whenever an attached player moves, attacks, blocks, jumps or crouches. Attaching the player
+somewhere dangerous (a zipline over a gorge) needs a `SetControls` prefix that neutralises those inputs while attached, and a safe
+set-down (ground under them, fall height reset) whenever it lets go for another reason: a reload, a logout (the logout point would be
+the hanging spot).
+
+## "True" from the game's UseItem doesn't mean it took the item
+
+`Fireplace.UseItem` returns true when the fire is full too, after only showing "can't add more"; `UseItem`/`Interact` answer "handled",
+not "taken". Check the station's state yourself (fuel against `m_maxFuel`, a free slot) before paying, or count before and after.
+
+## Take items only once the owner confirms, or give them back
+
+A station another player's game runs decides on its owner's game: your copy can be a moment old, and an RPC to an owner who just left or
+unloaded it is dropped without an answer. Taking the items first and sending them (bait into a trap, leaves into a curer, filling a
+fermenter run by another player) loses them whenever the owner refuses or never answers. Add one at a time and wait for the station to
+change, or keep what you sent until the owner confirms and give it back if no answer comes.
+
 ## Count a recipe's cost as the game does
 
 `recipe.m_resources` also lists battle idols, flagged `m_upgraderResource`: the game charges them only at an upgrader station
