@@ -274,7 +274,7 @@ namespace ClaudeTools
             var c = new Vector3[4];
             rt.GetWorldCorners(c);
             Canvas canvas = rt.GetComponentInParent<Canvas>();
-            Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            Camera cam = UiCamera(canvas);
             Vector2 a = RectTransformUtility.WorldToScreenPoint(cam, c[0]), b = RectTransformUtility.WorldToScreenPoint(cam, c[2]);
             float x0 = Mathf.Min(a.x, b.x), x1 = Mathf.Max(a.x, b.x), y0 = Mathf.Min(a.y, b.y), y1 = Mathf.Max(a.y, b.y);
             return new Rect(x0, UnityEngine.Screen.height - y1, x1 - x0, y1 - y0);
@@ -284,10 +284,20 @@ namespace ClaudeTools
         private static Rect UiScreenRect(RectTransform rt, Bounds local)
         {
             Canvas canvas = rt.GetComponentInParent<Canvas>();
-            Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            Camera cam = UiCamera(canvas);
             Vector2 a = RectTransformUtility.WorldToScreenPoint(cam, rt.TransformPoint(local.min)), b = RectTransformUtility.WorldToScreenPoint(cam, rt.TransformPoint(local.max));
             float x0 = Mathf.Min(a.x, b.x), x1 = Mathf.Max(a.x, b.x), y0 = Mathf.Min(a.y, b.y), y1 = Mathf.Max(a.y, b.y);
             return new Rect(x0, UnityEngine.Screen.height - y1, x1 - x0, y1 - y0);
+        }
+
+        /// <summary>The camera a canvas is drawn with: none for an overlay; its own, or else the scene's main camera (the main menu's
+        /// canvas has none set: without one, everything on it measured off screen).</summary>
+        private static Camera UiCamera(Canvas canvas)
+        {
+            if (canvas == null) return null;
+            Canvas root = canvas.rootCanvas;
+            if (root.renderMode == RenderMode.ScreenSpaceOverlay) return null;
+            return root.worldCamera != null ? root.worldCamera : Camera.main;
         }
 
         private static float UiOverlap(Rect p, Rect q)

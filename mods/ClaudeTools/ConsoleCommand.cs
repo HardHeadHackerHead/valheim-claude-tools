@@ -23,7 +23,7 @@ namespace ClaudeTools
 
         // commands that need no world: they run from the main menu too (in the console, and from request files)
         private static readonly HashSet<string> NoWorld = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "help", "library", "patches", "who", "clashes", "systems", "mods", "config", "log", "errors", "modcheck", "game", "gameupdate", "waitfor", "reload", "devmods", "language" };
+            { "help", "library", "patches", "who", "clashes", "systems", "mods", "config", "log", "errors", "modcheck", "game", "gameupdate", "waitfor", "reload", "devmods", "language", "screen", "wait" };
 
         // commands that change the world or hand out items: only where the game itself allows cheats (single player, the host, or a server
         // admin who turned devcommands on), from the console and from request files alike

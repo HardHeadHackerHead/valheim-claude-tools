@@ -26,7 +26,7 @@ profile's `BepInEx` folder with r2modman or Thunderstore Mod Manager (Settings â
 - **Ask the player** before looking at or doing things in their game, and tell them what you are about to do.
 - Requests only run when `AllowRequests = true` in `BepInEx/config/com.quad.claudetools.cfg` (the player switches it on) and the game is
   running. Most commands need the player **in a world**; the mod-maker ones (`modcheck`, `who`, `clashes`, `patches`, `game`, `gameupdate`,
-  `library`, `systems`) and `help`, `mods`, `config`, `log`, `errors`, `waitfor`, `reload`, `devmods`, `language` also run from the main menu. If a request stays as `.txt`,
+  `library`, `systems`) and `help`, `mods`, `config`, `log`, `errors`, `waitfor`, `reload`, `devmods`, `language` and `screen` (the main menu's buttons too) also run from the main menu. If a request stays as `.txt`,
   one of those is not true: ask the player. For mod-maker commands with the game closed, use **modkit** instead.
 - Requests run one at a time, in name order, within a second or two. Wait for `<name>.done.json`, then read it (and any pictures it names).
 - Run `help` first in a new session: it lists every command, including those other mods add (BuildOrders adds blueprint commands).

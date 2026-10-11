@@ -6,7 +6,7 @@
 teach it the game, the game's real code instead of guesses, a pre-release check, clash reports against the 100 most popular mods,
 templates and a ready-to-build project, and an in-game mod that lets the assistant see, test and photograph your game while you play.**
 
-![version: 1.2.7](https://img.shields.io/badge/version-1.2.7-3b6e8f?style=flat-square)
+![version: 1.2.8](https://img.shields.io/badge/version-1.2.8-3b6e8f?style=flat-square)
 ![BepInEx](https://img.shields.io/badge/BepInEx-5-7a5c2e?style=flat-square)
 ![license: MIT](https://img.shields.io/badge/license-MIT-4c7a3d?style=flat-square)
 ![made with: Claude Code](https://img.shields.io/badge/made%20with-Claude%20Code-c26a3d?style=flat-square)
