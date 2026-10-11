@@ -159,6 +159,11 @@ terrain loads before its pieces). When in doubt, leave it.
 `m_customData` holds every mod's saved data (backpack contents, enchantments). Never replace the dictionary; only your own prefixed keys.
 Moving items through `Inventory.Save`/`Load` keeps it.
 
+## Scaling a hit leaves its untyped damage alone
+
+`HitData.ApplyModifier(x)` scales every damage type but untyped (`m_damage.m_damage`): Quad's Dungeons' untyped shield-break blow took 48%
+of a boss's health instead of 8%. Scale a whole hit with `hit.m_damage.Modify(x)`, or scale `m_damage.m_damage` too.
+
 ## Name everything after your mod
 
 Prefab names, RPC names, ZDO keys, `m_customData` keys, `$` localization keys, console and Claude Tools commands, asset bundle names, the
