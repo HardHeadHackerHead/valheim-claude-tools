@@ -23,7 +23,7 @@ rule in the skills and every check in `modcheck` is a real bug that cost players
 | | What it is |
 |---|---|
 | **[skills/](skills/)** | Skills for Claude Code: **valheim-mod-start** (a new mod, the way the best mods are built), **valheim-game-code** (look it up, never guess), **valheim-compat** (other mods), **valheim-look** (windows in the game's own look), **valheim-pitfalls**, **valheim-prerelease**, **valheim-fix-errors**, **valheim-thunderstore** (releasing). |
-| **[templates/](templates/)** | Code to copy into a mod: windows in the game's own look (`GameUi.cs`), words in the player's language (`Translations.cs`), settings the server decides (`ServerSettings.cs`), taking from chests safely in multiplayer (`ContainerAccess.cs`), build pieces that reload while you play (`PieceReload.cs`). |
+| **[templates/](templates/)** | Code to copy into a mod: windows in the game's own look (`GameUi.cs`), words in the player's language (`Translations.cs`), settings the server decides (`ServerSettings.cs`), taking from chests safely in multiplayer (`ContainerAccess.cs`), build pieces and items that reload while you play (`PieceReload.cs`, `ItemReload.cs`). |
 | **[templates/project/](templates/project/)** | A whole mod project to start from: game references, shared code, an example mod in three languages, a translation check and `publish.ps1` for the mod manager. |
 | **[mods/ClaudeTools/](mods/ClaudeTools/)** | The in-game mod: your assistant's eyes and hands in the game (below). It also carries all of the above and writes it into `BepInEx/claude`. |
 | **modkit** ([tools/ModKit](tools/ModKit/)) | The mod-maker commands as a command-line program, for when the game is closed (Windows, Linux, Mac). |

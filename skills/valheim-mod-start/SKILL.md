@@ -108,9 +108,17 @@ If ScriptEngine is installed too, its F6 reloads **every** mod in `scripts` at o
 2. The pieces standing: after registering, `Reattach` swaps the old copy's components on placed pieces for the new copy's, so E on them
    runs the new code at once. Their fields start at defaults: a component reads what it needs in `Awake`, not from fields set on the prefab.
 
-Then declare it, `[assembly: AssemblyMetadata("ClaudeTools.Reload", "world")]`, and `modcheck` gives it `world`. It covers pieces only:
-an item in a bag or chest keeps the old copy's data until a restart, so a mod that adds items stays `menu`. Worth it when you change a
-piece mod often (no trip to the main menu, nothing deleted); players never notice either way, since they start the game with the mod.
+Then declare it, `[assembly: AssemblyMetadata("ClaudeTools.Reload", "world")]`, and `modcheck` gives it `world`. Worth it when you change
+a piece mod often (no trip to the main menu, nothing deleted); players never notice either way, since they start the game with the mod.
+
+**Items that reload while you play.** `templates/ItemReload.cs` does the same for items (Quad's Dungeons uses it):
+1. The gap: the old copy leaves its item prefabs registered and alive (on unload, do nothing to them while `KeepOnUnload` is true); the
+   new copy's `Replace` puts its own in their place by name, in ZNetScene and ObjectDB. A dropped item in an area loading meanwhile, or a
+   chest loading then, never meets a missing prefab.
+2. The items already out there hold the old copy's prefab: after registering in `Awake`, `Repoint` gives the ones in the player's bag,
+   loaded chests and on the ground the new copy's (anything missed still works: the old prefab is alive, and items save by name).
+Add items only through `Replace`, and keep item prefabs plain (no component of yours on them). `modcheck` gives `world` to a mod that adds
+items only through `ItemReload` and calls its `Repoint`; recipes and status effects still need the main menu.
 
 **Test in a world you can lose.** Make a test world (and character) for your mod, and back up `BepInEx/scripts` before copying in a build
 someone else made. Never try a build that saves things (pieces, chest contents, player data) on your main world first.

@@ -68,6 +68,7 @@ namespace ClaudeTools
             foreach (string d in searchDirs.Concat(new[] { Path.GetDirectoryName(dll) }).Where(Directory.Exists).Distinct()) resolver.AddSearchDirectory(d);
             bool readsUpgrader = false, unpatches = false, addsPrefabs = false, freesKeys = false, disposesWatcher = false;
             bool usesPiece = false, syncs = false, networked = false, binds = false, addsToObjectDB = false;
+            bool objectDbOutsideTemplate = false, repointsItems = false;   // (items added only through the ItemReload template, and its Repoint called)
             string declaredReload = null, managers = null;
             string watcherWhere = null;
             string resourcesWhere = null, prefabsWhere = null, heightWhere = null;
@@ -131,7 +132,10 @@ namespace ClaudeTools
                                 if (owner == "ZNetScene" && (f.Name == "m_prefabs" || f.Name == "m_namedPrefabs") && ins.OpCode == OpCodes.Ldfld && AddsTo(code, i))
                                     { addsPrefabs = true; prefabsWhere = prefabsWhere ?? where; }
                                 if (owner == "ObjectDB" && (f.Name == "m_items" || f.Name == "m_recipes" || f.Name == "m_StatusEffects") && ins.OpCode == OpCodes.Ldfld && AddsTo(code, i))
+                                {
                                     addsToObjectDB = true;
+                                    if (f.Name != "m_items" || !InTemplate(type, "ItemReload")) objectDbOutsideTemplate = true;
+                                }
                                 if (f.Name == "m_customData" && ins.OpCode == OpCodes.Stfld && !NullGuarded(code, i))
                                     Add("warning", "replaces-custom-data", where, $"It replaces a {owner}.m_customData dictionary (not only when it is missing).",
                                         "m_customData is shared: every mod keeps its own keys in it. Replacing the dictionary of an item or player that has one wipes " +
@@ -149,6 +153,7 @@ namespace ClaudeTools
                             {
                                 string owner = called.DeclaringType.FullName, name = called.Name;
                                 if (owner == "HarmonyLib.Harmony" && name.StartsWith("Unpatch")) unpatches = true;
+                                if (name == "Repoint" && called.DeclaringType.Name == "ItemReload" && !InTemplate(type, "ItemReload")) repointsItems = true;
                                 if ((name == "GetComponent" || name == "GetComponentInParent" || name == "TryGetComponent") && called is GenericInstanceMethod gc
                                     && gc.GenericArguments[0].Name == "Piece") usesPiece = true;
                                 if (owner.Contains("ServerSync") || owner.EndsWith("ServerSettings") || owner.Contains("SynchronizationManager")) syncs = true;
@@ -258,12 +263,18 @@ namespace ClaudeTools
             if (usesJotunn) Need(2, "it uses Jotunn, which registers its things once per game");
             if (managers != null) Need(2, $"it includes {managers}, which patches with its own Harmony id: unloading can't undo it");
             // a mod whose pieces are made reloadable (they stay registered, and placed ones get the new copy's components: the template's
-            // PieceReload) says so with AssemblyMetadata("ClaudeTools.Reload", "world"); that covers pieces only, never items in bags
-            bool piecesReload = declaredReload == "world" && !addsToObjectDB && heightWhere == null && !(patches.Count > 0 && !unpatches) && !usesJotunn && managers == null;
+            // PieceReload) says so with AssemblyMetadata("ClaudeTools.Reload", "world"); that covers pieces and creatures;
+            // items too, when every item it adds to ObjectDB goes through the template's ItemReload (kept registered over a reload, replaced by
+            // name) and it calls ItemReload.Repoint (the items in bags, chests and on the ground given the new copy's prefabs); recipes and
+            // status effects still need the main menu
+            bool itemsReload = addsToObjectDB && !objectDbOutsideTemplate && repointsItems;
+            bool piecesReload = declaredReload == "world" && (!addsToObjectDB || itemsReload) && heightWhere == null && !(patches.Count > 0 && !unpatches) && !usesJotunn && managers == null;
             if (addsPrefabs && piecesReload) why.Add("it registers pieces or creatures, and its author says they reload in a world (kept registered, the ones in the world given the new copy)");
             else if (addsPrefabs) Need(1, "it registers prefabs (pieces, items or creatures): for a moment they're missing, and placed ones and items in bags " +
                                      "point at the old copy");
-            if (addsToObjectDB) Need(1, "it adds items, recipes or status effects to ObjectDB");
+            if (addsToObjectDB && piecesReload) why.Add("it adds items through the ItemReload template, and its author says they reload in a world (kept registered, the ones in bags, chests and on the ground given the new copy)");
+            else if (addsToObjectDB) Need(1, "it adds items, recipes or status effects to ObjectDB" + (declaredReload == "world" && !itemsReload
+                                          ? " (for world, add items only through templates/ItemReload.cs and call its Repoint)" : ""));
             if (heightWhere != null) Need(1, "it changes an inventory's size: unloading can drop items from the extra rows");
             if (patches.Count > 0 && !unpatches) Need(1, "it never removes its patches: a reload runs them twice");
             int declared = Array.IndexOf(ReloadLevels, declaredReload ?? "");
@@ -352,5 +363,12 @@ namespace ClaudeTools
         }
 
         private static IEnumerable<TypeDefinition> All(TypeDefinition t) => new[] { t }.Concat(t.NestedTypes.SelectMany(All));
+
+        /// <summary>The type is a template's class (by its name), or nested in it (its lambdas).</summary>
+        private static bool InTemplate(TypeDefinition t, string name)
+        {
+            for (; t != null; t = t.DeclaringType) if (t.Name == name) return true;
+            return false;
+        }
     }
 }

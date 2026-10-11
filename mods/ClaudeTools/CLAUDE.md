@@ -114,7 +114,7 @@ Each mod has a **reload level**, from its code (`modcheck` and `devmods` show it
 | Level | What the mod does | When it reloads |
 |---|---|---|
 | `world` | patches methods, UI, commands, settings | anywhere |
-| `menu` | registers pieces, items, creatures, recipes or status effects, or changes inventory sizes | at the main menu only: in a world, for a moment its prefabs are missing (the host deletes objects in areas that load) and items in bags point at the old copy. A piece mod using `templates/PieceReload.cs` declares `world` and reloads anywhere |
+| `menu` | registers pieces, items, creatures, recipes or status effects, or changes inventory sizes | at the main menu only: in a world, for a moment its prefabs are missing (the host deletes objects in areas that load) and items in bags point at the old copy. A piece mod using `templates/PieceReload.cs` (and for its items `templates/ItemReload.cs`) declares `world` and reloads anywhere |
 | `restart` | uses Jotunn or blaxxun-boop's managers | only by restarting the game |
 
 `reload <mod> force` ignores the level: only in a test world, and only after asking the player. `AutoReload` (section `Dev` of the

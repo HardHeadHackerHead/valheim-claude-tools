@@ -62,6 +62,12 @@ the next reload.
 A container on an object that saves other things often (a creature) is rebuilt over and over: in-place changes lost, held items point at
 old copies. Skip the reload on the owner after loading once.
 
+## A container's saved contents are bytes, not a string
+
+`ZDOVars.s_items` is a byte array (`Container.Save` writes bytes). `GetString` on it is always `""`, so "is this unloaded chest empty?"
+always says yes: Quad's Dungeons destroyed unloaded chests with players' items in them this way. Use `GetByteArray` (or load an
+`Inventory`), and test "empty" and "untouched" checks with a chest that holds something.
+
 ## Keep a moving object's ZDO small
 
 The game sends a ZDO **whole** (every key) to each player near it whenever its revision changes. Any `ZDO.Set` that changes a value bumps

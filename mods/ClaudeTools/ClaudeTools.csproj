@@ -30,6 +30,7 @@
     <EmbeddedResource Include="../../templates/ContainerAccess.cs" LogicalName="templates/ContainerAccess.cs" />
     <EmbeddedResource Include="../../templates/GameUi.cs" LogicalName="templates/GameUi.cs" />
     <EmbeddedResource Include="../../templates/PieceReload.cs" LogicalName="templates/PieceReload.cs" />
+    <EmbeddedResource Include="../../templates/ItemReload.cs" LogicalName="templates/ItemReload.cs" />
     <EmbeddedResource Include="../../templates/Translations.cs" LogicalName="templates/Translations.cs" />
     <EmbeddedResource Include="../../templates/ServerSettings.cs" LogicalName="templates/ServerSettings.cs" />
     <!-- A whole mod project to start from (also template/ in the mod manager repo: tools/sync_project_template.py keeps that copy the same). -->
