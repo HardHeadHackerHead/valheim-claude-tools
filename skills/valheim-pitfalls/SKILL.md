@@ -39,7 +39,9 @@ ComfyQuickSlots, BetterArchery's quiver): when one is installed, stand down and 
 ## Never save a ZDOID
 
 Every world load renumbers objects: a saved `ZDOID` points at an unrelated object after a restart. Store your own random id on the
-object, or use `ZDO.SetConnection` (re-linked by the game).
+object, or use `ZDO.SetConnection` (re-linked by the game). Not even in memory across worlds: a `ZDOID`'s hash comes from a table the game
+empties on each join (`ZDOID.Reset`), so a dictionary keyed by ZDOIDs kept through a trip to the main menu can't find them (and can throw).
+Key by `(id.UserID, id.ID)` taken when adding, or empty it when a new world starts.
 
 ## Fill a tombstone with the game's own move
 
