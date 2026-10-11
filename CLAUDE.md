@@ -18,3 +18,5 @@ says what each part is.
 - The repo is also a Claude Code plugin (`.claude-plugin/`: the marketplace and the plugin `valheim-modding`, whose skills are
   `skills/`). Keep `version` in `.claude-plugin/plugin.json` the same as the mod's `Version`, and check with
   `claude plugin validate .` (the one warning, about this CLAUDE.md not being plugin context, is expected).
+- After changing a skill, run `python tools/check_skills.py`: a description with an unquoted `: ` breaks the skill's header and it is
+  never used by itself (two of ours were like that until 1.2.6, and `claude plugin validate` doesn't notice).

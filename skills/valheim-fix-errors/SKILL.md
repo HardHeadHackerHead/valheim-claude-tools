@@ -1,6 +1,6 @@
 ---
 name: valheim-fix-errors
-description: Find out why Valheim or a mod is broken from the BepInEx log: read errors and stack traces, tell which mod and patch caused it, spot mod clashes and game-update breakage, and fix it or report it to the right author. Use when a player says something stopped working, the game errors, or after a game update.
+description: "Find out why Valheim or a mod is broken from the BepInEx log: read errors and stack traces, tell which mod and patch caused it, spot mod clashes and game-update breakage, and fix it or report it to the right author. Use when a player says something stopped working, the game errors, or after a game update."
 ---
 
 # Fixing a broken mod setup

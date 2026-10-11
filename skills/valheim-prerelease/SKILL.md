@@ -1,6 +1,6 @@
 ---
 name: valheim-prerelease
-description: Check a Valheim mod before releasing or updating it: the automatic pre-release check, a real restart, multiplayer and dedicated server, clashes with popular mods, the README. Use before publishing a mod, raising its version, or telling a player a fix is ready.
+description: "Check a Valheim mod before releasing or updating it: the automatic pre-release check, a real restart, multiplayer and dedicated server, clashes with popular mods, the README. Use before publishing a mod, raising its version, or telling a player a fix is ready."
 ---
 
 # Before releasing a Valheim mod
