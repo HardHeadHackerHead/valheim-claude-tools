@@ -13,6 +13,8 @@ templates and a ready-to-build project, and an in-game mod that lets the assista
 
 [Download the mod](dist/)  ·  [Skills](skills/)  ·  [Templates](templates/)  ·  [Report a bug](https://github.com/HardHeadHackerHead/valheim-claude-tools/issues/new?template=bug.yml)  ·  [Discord](https://discord.gg/EwTjQxEZPy)
 
+[![Join us on Discord](https://img.shields.io/badge/Join_us_on-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/EwTjQxEZPy)
+
 Everything here comes from making [our own Valheim mods](https://github.com/HardHeadHackerHead/valheim-mods) with Claude Code: every
 rule in the skills and every check in `modcheck` is a real bug that cost players their items or buildings, or broke someone else's mod.
 
@@ -178,6 +180,20 @@ publish.ps1                 builds and writes dist/ (the feed the mod manager re
 
 Made with the help of Claude (Anthropic), with Claude Code: designed, written and checked together, and tried in the game. Claude Tools
 is an independent project, not made or endorsed by Anthropic or Iron Gate.
+
+## 💬 Join us on Discord
+
+<a href="https://discord.gg/EwTjQxEZPy"><img src="https://raw.githubusercontent.com/HardHeadHackerHead/valheim-mods/main/tools/modpages/discord-banner.jpg" alt="Join the Quads Lab Discord" width="100%"></a>
+
+Come hang out with the people who make and play these mods. In the **Quads Lab Discord** you can:
+
+- 🛠️ **Get help** and report bugs straight to us
+- 👀 **See new mods first**, and help test them before they're released
+- 🗳️ **Suggest ideas** and vote on what we make next
+- 🏰 **Share your builds**, bases and arena runs
+- 🤖 **Talk AI coding and vibe coding** with people building things with AI, the way these mods are made
+
+**[Join the Quads Lab Discord →](https://discord.gg/EwTjQxEZPy)**
 
 ## 🧪 About Quads Lab
 
