@@ -223,6 +223,25 @@ namespace ClaudeTools
                 return null;
             });
 
+            Builtin("daytime", "daytime <hh:mm | 0-1 | off>: hold this game at that time of day (a picture in daylight), as the game's console tod does; off: back to the " +
+                "world's own time. Only on this computer, and only where cheats are allowed", (a, output, error) =>
+            {
+                if (EnvMan.instance == null) { error("no world loaded"); return null; }
+                if (!CheatsAllowed()) { error(CheatRefusal("daytime")); return null; }
+                if (a.Length < 2) { output(new JObject { ["held"] = EnvMan.instance.m_debugTimeOfDay, ["at"] = EnvMan.instance.m_debugTimeOfDay ? Clock(EnvMan.instance.m_debugTime) : null }); return null; }
+                string w = a[1].ToLowerInvariant();
+                if (w == "off" || w == "-1") { EnvMan.instance.m_debugTimeOfDay = false; output(new JObject { ["held"] = false }); return null; }
+                float day;
+                string[] hm = w.Split(':');
+                if (hm.Length == 2 && int.TryParse(hm[0], out int h) && int.TryParse(hm[1], out int m)) day = Mathf.Clamp01((h * 60 + m) / 1440f);
+                else if (float.TryParse(w, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float f)) day = Mathf.Clamp01(f);
+                else { error("daytime <hh:mm | 0-1 | off>, e.g. daytime 12:00"); return null; }
+                EnvMan.instance.m_debugTimeOfDay = true;
+                EnvMan.instance.m_debugTime = day;
+                output(new JObject { ["held"] = true, ["at"] = Clock(day) });
+                return null;
+            });
+
             Builtin("language", "language [name | dump]: the game's language now and every one it has; dump saves all its words in the language shown now to BepInEx/claude/game-words/<Language>.json (to find the game's own words); with a name (as listed: German, Portuguese_Brazilian...) switch to it, " +
                 "as the player's Settings would (for checking a mod's translations: switch back after)", (a, output, error) =>
             {
@@ -426,6 +445,8 @@ namespace ClaudeTools
                 return null;
             });
         }
+
+        private static string Clock(float day) { int min = Mathf.RoundToInt(day * 1440f) % 1440; return $"{min / 60:00}:{min % 60:00}"; }
 
         private static IEnumerator Wait(float seconds)
         {

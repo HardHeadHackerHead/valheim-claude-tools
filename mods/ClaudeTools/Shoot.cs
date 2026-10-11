@@ -59,10 +59,32 @@ namespace ClaudeTools
                     if (!CheatsAllowed()) { error(CheatRefusal("shoot tp")); yield break; }
                     var to = new Vector3(F(a, 2, 0f), F(a, 3, 0f), F(a, 4, 0f));
                     Quaternion face = Quaternion.Euler(0f, F(a, 5, 0f), 0f);
-                    // never into thin air: a guessed spot beside an upstairs piece dropped the player a floor (with fall damage)
-                    if ((to - player.transform.position).magnitude <= 60f && !Physics.Raycast(to + Vector3.up * 0.5f, Vector3.down, 2.5f, FloorMask))
+                    // never into thin air: a guessed spot beside an upstairs piece dropped the player a floor (with fall damage). Near or far by
+                    // the ground distance only: a spot high above counted as far once, skipped this check, and the player fell 70 m to death
+                    Vector3 step = to - player.transform.position; step.y = 0f;
+                    bool far = step.magnitude > 60f;
+                    if (!far && !Physics.Raycast(to + Vector3.up * 0.5f, Vector3.down, 2.5f, FloorMask))
                     { error($"no floor under {to.x:0.0} {to.y:0.0} {to.z:0.0}: the player would fall. To stand beside something, use shoot near <name>"); yield break; }
-                    if ((to - player.transform.position).magnitude > 60f) { player.TeleportTo(to, face, true); yield return new WaitForSeconds(8f); }
+                    if (far)
+                    {
+                        // the game's own teleport loads the area, but it only checks for a floor somewhere below and leaves the player at the
+                        // height given: the moment it ends, set them down on the floor under them, with no fall counted
+                        player.TeleportTo(to, face, true);
+                        float until = Time.time + 20f;
+                        yield return null;
+                        while (Player.m_localPlayer == player && player.IsTeleporting() && Time.time < until) yield return null;
+                        if (Player.m_localPlayer != player) { error("the player is gone (teleport?)"); yield break; }
+                        if (Physics.Raycast(player.transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit floor, 2000f, FloorMask)
+                            && player.transform.position.y - floor.point.y > 0.3f)
+                        {
+                            Vector3 on = floor.point + Vector3.up * 0.05f;
+                            player.transform.position = on;
+                            Rigidbody fell = player.GetComponent<Rigidbody>();
+                            if (fell != null) { fell.position = on; fell.linearVelocity = Vector3.zero; }
+                            AccessTools.Field(typeof(Character), "m_maxAirAltitude")?.SetValue(player, on.y);
+                        }
+                        yield return new WaitForSeconds(0.4f);
+                    }
                     else
                     {
                         player.transform.SetPositionAndRotation(to, face);
