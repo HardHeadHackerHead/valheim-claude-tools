@@ -1,0 +1,14 @@
+Everything you need to make good Valheim mods with an AI assistant like Claude Code, and an assistant that can see your game: through files on your computer, no network port, and it only moves your character or presses keys for you where the game allows cheats.
+
+How it works
+- For mod makers: modcheck <mod> before a release (mistakes that lose players' things or break other mods), who and clashes (which popular mods change the same things as yours), game (the game's real code instead of guesses) and gameupdate (what a game update broke). What the top 100 Thunderstore mods patch is built in; DownloadMods keeps it fresh and keeps their code to read on your computer (never loaded, never shared).
+- Skills for Claude Code (starting a mod, the game's code, other mods, the game's look, pitfalls, the pre-release list, fixing errors, Thunderstore), templates (windows in the game's look, words in the player's language, server settings, chests, pieces that reload) and a whole mod project to start from are written to BepInEx/claude, with modkit (the same commands with the game closed).
+- A dev loader reloads the mod you are making (in BepInEx/scripts) without a restart, when that's safe. screen, render, shoot and language test your windows, models, page pictures and translations as a player would.
+- The assistant writes a request (a text file of commands) into BepInEx/claude/requests. While you are in a world, the game carries it out and writes the answer next to it. Pictures go to BepInEx/claude/shots.
+- It can take pictures (your view, a separate camera anywhere, all round a place, straight down), survey the ground, and find out your status, inventory, chests, what is nearby, what you are looking at, which mods are running, their settings and the log. It can show you a message and put a pin on your map. F12 saves a screenshot for the assistant; Ctrl+F12 surveys the ground where you look.
+- Other mods add their own commands. With BuildOrders, the assistant can design blueprints, place them, photograph and check them.
+- The assistant's guide is written to BepInEx/claude/CLAUDE.md: start Claude Code in that folder. Type claude <command> in the game's console (F5, once "Enable console" is on in Settings → Gameplay) to run any command yourself.
+
+Requests are off until you switch AllowRequests on (BepInEx/config/com.quad.claudetools.cfg). Changing mods' settings by request needs AllowConfigChanges as well. Only switch requests on while you work with an assistant.
+
+Source, skills and templates: github.com/HardHeadHackerHead/valheim-claude-tools

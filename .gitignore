@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+__pycache__/
+*.pyc
+
+# Local tooling state
+.claude/
+.quadflow/
+
+# Never commit secrets
+*.token
+*.cfg
+
+# PatchMap: downloaded mods (never committed)
+tools/PatchMap/cache/

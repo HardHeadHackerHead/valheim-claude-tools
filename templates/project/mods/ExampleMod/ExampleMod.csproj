@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>ExampleMod</AssemblyName>
+    <RootNamespace>ExampleMod</RootNamespace>
+  </PropertyGroup>
+  <!-- Shared code only some mods need, from mods/Shared (Shared/All goes into every mod by itself). For example:
+  <ItemGroup>
+    <Compile Include="../Shared/ContainerAccess.cs" Link="Shared/ContainerAccess.cs" />
+  </ItemGroup>
+  -->
+</Project>

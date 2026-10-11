@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in Claude Tools (a command, modkit, a skill or a template) doesn't work as it should
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Claude Tools version
+      description: In the F7 mod manager, or the first lines of BepInEx/LogOutput.log ("ClaudeTools 1.2.6 loaded").
+      placeholder: "1.2.6"
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part
+      options:
+        - A command (requests, or claude <command> in the console)
+        - Pictures (shot, view, orbit, top, render, shoot)
+        - modcheck, who, clashes, game, gameupdate or the mod library
+        - modkit (the command-line program)
+        - The dev loader (reload, devmods, AutoReload)
+        - A skill or the guide (CLAUDE.md)
+        - A template (templates/ or templates/project)
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      placeholder: I ran "shot 1280" and the picture came out black.
+    validations:
+      required: true
+  - type: textarea
+    id: request
+    attributes:
+      label: The request and its answer
+      description: The request file's lines and its .done.json (or the console line you typed and what it printed).
+      render: text
+  - type: textarea
+    id: mods
+    attributes:
+      label: Your other mods
+      description: The "mods" command lists them, or name the big ones.
+  - type: textarea
+    id: log
+    attributes:
+      label: The log
+      description: The "errors" command, or attach BepInEx/LogOutput.log (r2modman → Settings → Browse profile folder).
+      render: text
