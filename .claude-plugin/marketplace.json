@@ -1,0 +1,15 @@
+{
+  "name": "valheim-claude-tools",
+  "description": "Skills for making Valheim mods with Claude Code, from Quads Lab",
+  "owner": {
+    "name": "Quad H (HardHeadHackerHead)",
+    "url": "https://github.com/HardHeadHackerHead"
+  },
+  "plugins": [
+    {
+      "name": "valheim-modding",
+      "source": "./",
+      "description": "8 skills for making Valheim mods: starting one, the game's real code, other mods, the game's look, pitfalls, the pre-release check, fixing errors, releasing on Thunderstore"
+    }
+  ]
+}

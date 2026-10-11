@@ -15,3 +15,6 @@ says what each part is.
 - Build: `dotnet build mods/ClaudeTools -c Release` (needs `VALHEIM_DIR`; it copies the DLL into `BepInEx/scripts`, which the dev loader
   may reload at once while the game runs: `-p:DeployToGame=false` to only build).
 - Our mods that use these tools live in https://github.com/HardHeadHackerHead/valheim-mods.
+- The repo is also a Claude Code plugin (`.claude-plugin/`: the marketplace and the plugin `valheim-modding`, whose skills are
+  `skills/`). Keep `version` in `.claude-plugin/plugin.json` the same as the mod's `Version`, and check with
+  `claude plugin validate .` (the one warning, about this CLAUDE.md not being plugin context, is expected).

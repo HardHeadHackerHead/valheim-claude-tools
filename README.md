@@ -77,15 +77,25 @@ you switch it on.
 It isn't on Thunderstore: it downloads other mods' code to read (the mod library) and loads the mods you are making from memory, which
 Thunderstore doesn't allow.
 
-Only want the skills and templates? They're plain files: copy [skills/](skills/) into your project's `.claude/skills` (or
-`~/.claude/skills` for every project), and copy what you need from [templates/](templates/). The mod adds the game-side half: the
-commands, `modcheck` against the real game, and pictures.
+### The skills in Claude Code
+
+This repo is a Claude Code plugin. Install it once and the skills are in every session, picked up by themselves when you work on
+a Valheim mod:
+
+```
+/plugin marketplace add HardHeadHackerHead/valheim-claude-tools
+/plugin install valheim-modding@valheim-claude-tools
+```
+
+Updates: `/plugin marketplace update valheim-claude-tools`, or switch on auto-update for it under `/plugin` → Marketplaces. (Or copy
+[skills/](skills/) into a project's `.claude/skills` by hand.) The templates are plain files: copy what you need from
+[templates/](templates/). The mod adds the game-side half: the commands, `modcheck` against the real game, and pictures.
 
 ## 🚀 Getting started
 
 **Making a mod:**
-1. Copy [templates/project](templates/project/) (or `BepInEx/claude/templates/project` once the mod has run) to where you keep your code,
-   and the skills into its `.claude/skills`.
+1. Install the skills (above), and copy [templates/project](templates/project/) (or `BepInEx/claude/templates/project` once the mod
+   has run) to where you keep your code.
 2. Set `VALHEIM_DIR` to the game folder, start Claude Code there and say what you want to make. The **valheim-mod-start** skill walks
    through the rest.
 
