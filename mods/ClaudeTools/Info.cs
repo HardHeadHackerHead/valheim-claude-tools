@@ -30,6 +30,7 @@ namespace ClaudeTools
             RegisterShootCommands();
             RegisterUiCommands();
             RegisterObjectCommands();
+            RegisterLagCommand();   // lag (Lag.cs)
 
             Builtin("help", "help: every command, with the mod that adds it", (a, output, error) =>
             {

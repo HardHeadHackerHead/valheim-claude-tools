@@ -23,6 +23,83 @@ namespace ClaudeTools
 
         private void RegisterTesting()
         {
+            Builtin("raven", "raven [seen [munin|hugin|all] | seenlist | unseen <key...> | dismiss]: what the ravens (Hugin, and Munin) have to say to this character now: the current message, the ones " +
+                "waiting (from world keys and earlier messages), the fixed ones near guide points within 100 m, and whether this character has seen each; " +
+                "seen marks the waiting and nearby ones as read for this character (as talking to the raven does); seenlist lists what this character has " +
+                "seen; unseen takes keys off that list (the raven tells them again when they come up); dismiss sends the ravens away now and empties the queue " +
+                "of messages waiting (the game keeps it across worlds and characters)", (a, output, error) =>
+                {
+                    Vector3 me = Player.m_localPlayer.transform.position;
+                    var temp = AccessTools.Field(typeof(Raven), "m_tempTexts")?.GetValue(null) as List<Raven.RavenText> ?? new List<Raven.RavenText>();
+                    var fixedTexts = AccessTools.Field(typeof(Raven), "m_staticTexts")?.GetValue(null) as List<Raven.RavenText> ?? new List<Raven.RavenText>();
+                    var near = fixedTexts.Where(t => t != null && t.m_guidePoint != null && Vector3.Distance(me, t.m_guidePoint.transform.position) < 100f).ToList();
+                    var shown = AccessTools.Field(typeof(Player), "m_shownTutorials")?.GetValue(Player.m_localPlayer) as HashSet<string>;
+                    string sub = a.Length > 1 ? a[1].ToLowerInvariant() : "";
+                    if (sub == "seenlist")
+                    {
+                        output(new JObject { ["character"] = Player.m_localPlayer.GetPlayerName(), ["seen"] = new JArray((shown ?? new HashSet<string>()).OrderBy(k => k)) });
+                        return null;
+                    }
+                    if (sub == "unseen")
+                    {
+                        var removed = new JArray();
+                        foreach (string k in a.Skip(2)) if (shown != null && shown.Remove(k)) removed.Add(k);
+                        output(new JObject { ["character"] = Player.m_localPlayer.GetPlayerName(), ["noLongerSeen"] = removed,
+                            ["note"] = "the raven will tell these again when they come up; saved with the character the next time it saves (console save, or logging out)" });
+                        return null;
+                    }
+                    if (sub == "dismiss")
+                    {
+                        int queued = temp.Count;
+                        temp.Clear();   // (the game keeps this queue across worlds and characters)
+                        var gone = new JArray();
+                        foreach (Raven r in UnityEngine.Object.FindObjectsByType<Raven>(FindObjectsSortMode.None))
+                        {
+                            AccessTools.Field(typeof(Raven), "m_currentText")?.SetValue(r, null);
+                            try { AccessTools.Method(typeof(Raven), "FlyAway")?.Invoke(r, new object[] { true }); } catch (Exception) { }
+                            gone.Add(r.m_name);
+                        }
+                        output(new JObject { ["sentAway"] = gone, ["queueCleared"] = queued });
+                        return null;
+                    }
+                    if (a.Length > 1 && a[1].Equals("seen", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string which = a.Length > 2 ? a[2].ToLowerInvariant() : "munin";
+                        var marked = new JArray();
+                        foreach (Raven.RavenText t in temp.Concat(near))
+                        {
+                            if (t == null || t.m_key.Length == 0 || (which == "munin" && !t.m_munin) || (which == "hugin" && t.m_munin)) continue;
+                            if (!Player.m_localPlayer.HaveSeenTutorial(t.m_key)) { Player.m_localPlayer.SetSeenTutorial(t.m_key); marked.Add(t.m_key); }
+                        }
+                        output(new JObject { ["markedSeen"] = marked, ["note"] = "saved with the character the next time it saves (console save, or logging out)" });
+                        return null;
+                    }
+                    var ravens = new JArray();
+                    foreach (Raven r in UnityEngine.Object.FindObjectsByType<Raven>(FindObjectsSortMode.None))
+                    {
+                        var cur = AccessTools.Field(typeof(Raven), "m_currentText")?.GetValue(r) as Raven.RavenText;
+                        ravens.Add(new JObject { ["name"] = r.m_name, ["munin"] = r.m_isMunin, ["at"] = Vec(r.transform.position), ["saying"] = cur != null ? RavenTextJson(cur, me) : null });
+                    }
+                    output(new JObject
+                    {
+                        ["ravens"] = ravens,
+                        ["waiting"] = new JArray(temp.Where(t => t != null).Select(t => RavenTextJson(t, me))),
+                        ["nearby"] = new JArray(near.Select(t => RavenTextJson(t, me))),
+                    });
+                    return null;
+                });
+
+            Builtin("logtrace", "logtrace <warning|log|error> <on|off>: add the calling code (a stack trace) to the game's warnings (or plain log lines, or errors) " +
+                "in the log, to find what keeps logging a warning; off again when done (traces make the log much longer)", (a, output, error) =>
+                {
+                    if (a.Length < 3) { error("logtrace <warning|log|error> <on|off>"); return null; }
+                    LogType type = a[1].ToLowerInvariant() == "log" ? LogType.Log : a[1].ToLowerInvariant() == "error" ? LogType.Error : LogType.Warning;
+                    bool on = a[2].Equals("on", StringComparison.OrdinalIgnoreCase);
+                    Application.SetStackTraceLogType(type, on ? StackTraceLogType.ScriptOnly : (type == LogType.Error ? StackTraceLogType.ScriptOnly : StackTraceLogType.None));
+                    output(new JObject { ["type"] = type.ToString(), ["traces"] = Application.GetStackTraceLogType(type).ToString() });
+                    return null;
+                });
+
             Builtin("words", "words <$key|text>...: what the game shows for each key now (in its current language, with any setting a mod fills in): words $recycler_piece_desc",
                 (a, output, error) =>
                 {
@@ -192,6 +269,18 @@ namespace ClaudeTools
                     output(o);
                     return null;
                 });
+        }
+
+        private static JObject RavenTextJson(Raven.RavenText t, Vector3 me)
+        {
+            var o = new JObject
+            {
+                ["raven"] = t.m_munin ? "Munin" : "Hugin", ["key"] = t.m_key, ["topic"] = Localization.instance.Localize(t.m_topic),
+                ["text"] = Localization.instance.Localize(t.m_text), ["seen"] = t.m_key.Length > 0 && Player.m_localPlayer.HaveSeenTutorial(t.m_key),
+                ["alwaysSpawn"] = t.m_alwaysSpawn, ["fixed"] = t.m_static,
+            };
+            if (t.m_guidePoint != null) { o["at"] = Vec(t.m_guidePoint.transform.position); o["distance"] = Math.Round(Vector3.Distance(me, t.m_guidePoint.transform.position)); }
+            return o;
         }
 
         private static bool Slot(string s, out Vector2i at)

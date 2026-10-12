@@ -1,6 +1,6 @@
 ---
 name: valheim-fix-errors
-description: "Find out why Valheim or a mod is broken from the BepInEx log: read errors and stack traces, tell which mod and patch caused it, spot mod clashes and game-update breakage, and fix it or report it to the right author. Use when a player says something stopped working, the game errors, or after a game update."
+description: "Find out why Valheim or a mod is broken from the BepInEx log: read errors and stack traces, tell which mod and patch caused it, spot mod clashes and game-update breakage, and fix it or report it to the right author. Use when a player says something stopped working, the game errors, the game stutters or lags (spikes every few seconds), or after a game update."
 ---
 
 # Fixing a broken mod setup
@@ -58,6 +58,20 @@ Then go through **When there's a clash** in **valheim-compat**: confirm it in th
 `gameupdate` lists the game methods gone, changed signature or changed code since the version before, and which installed and
 popular mods patch them (`gone` breaks the patch outright; transpilers on `codeChanged` methods often break). ClaudeTools logs a summary on
 the first launch after an update. Those mods need an update from their authors.
+
+## 4b. Stutter and lag spikes
+
+A hitch every few seconds is usually a mod doing something big on a timer in one frame. Don't guess from the code: run `lag 20`
+(Claude Tools) with the player where it happens. It times every mod's Update methods, coroutines and patches (and the game's own
+Updates) and reports each slow frame: which methods took the time, by mod, memory cleanups (`gc`), log lines written, and
+`spikeEverySeconds`. Patching takes a few seconds first (the player feels it); everything is taken off at the end.
+
+- A method with a big `worstFrameMs` but a small `msPerSecond` is a timer job: find the timer and make the job cheaper (stop at the
+  first answer, cache what is read from files, do it less often, or a slice per frame).
+- A spike whose `timedMs` and `gameMs` add up to far less than its `ms` went elsewhere: `gc` > 0 is memory cleanup (something
+  allocates a lot); `logLines` in the hundreds is a log flood; otherwise loading, physics, rendering or the network.
+- `oldCopiesRunning` lists mods whose old hot-reload copy still has objects running (its Update may still cost time).
+- Run it again after the fix and compare `frameMs` (`p99`, `max`) and `spikes`.
 
 ## 5. Fix it, or report it
 
