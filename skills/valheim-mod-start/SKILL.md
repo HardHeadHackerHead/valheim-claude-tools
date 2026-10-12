@@ -33,8 +33,9 @@ order, and check each step in the game before the next.
 Make the mod in its own folder (anywhere, not inside the game's), start Claude Code there, and copy the skills in: `BepInEx/claude/.claude/skills`
 to the project's `.claude/skills`. Start from the project template, `BepInEx/claude/templates/project` (copy the whole folder):
 `mods/Directory.Build.props` (game paths and references), `mods/Shared` (code compiled into each mod), `mods/ExampleMod/` (rename
-folder, csproj, namespace) and `publish.ps1`. Set
-`VALHEIM_DIR` to the game folder and, when a mod manager keeps BepInEx in a profile, `BEPINEX_DIR` to that profile's `BepInEx` folder. The
+folder, csproj, namespace, GUID: `publish.ps1` and `modcheck` refuse the template's names, `com.yourname.examplemod`, `ExampleMod`,
+`YourName`) and `publish.ps1`. Write the game folder into `mods/Directory.Build.local.props` (`<ValheimDir>`, not committed; the path
+Claude Tools reports), or set `VALHEIM_DIR`; when a mod manager keeps BepInEx in a profile, `BEPINEX_DIR` to that profile's `BepInEx` folder. The
 plugin:
 
 ```csharp
@@ -94,7 +95,7 @@ safe depends on what the mod does: `modcheck` gives its **reload level**, `reloa
 |---|---|---|
 | `world` | only patches methods, adds UI, commands, settings; keeps its saved state in ZDOs or `m_customData` | anywhere, in a world too |
 | `menu` | registers pieces, items, creatures, recipes or status effects, or changes an inventory's size | at the main menu only: for a moment its prefabs are missing (a host loading an area then deletes those objects), and items in bags point at the old copy |
-| `restart` | uses Jotunn or blaxxun-boop's managers (they patch with their own Harmony ids) | only by restarting the game |
+| `restart` | uses Jotunn or blaxxun-boop's / Azumatt's managers (they patch with their own Harmony ids) | only by restarting the game |
 
 A mod can declare a stricter level than the one found: `[assembly: AssemblyMetadata("ClaudeTools.Reload", "menu")]`. To try a `menu` mod,
 quit to the main menu, `reload YourMod`, then load the world. `reload YourMod force` ignores the level: only in a test world. The old
@@ -163,18 +164,30 @@ From reading the code of the 100 most-downloaded Valheim mods:
   `ConfigurationManagerAttributes` (`Order`, `IsAdvanced`) for players who use ConfigurationManager: copy
   `ConfigurationManagerAttributes.cs` from https://github.com/BepInEx/BepInEx.ConfigurationManager into your project (it's found by name).
 - Bind many settings in one go: `Config.SaveOnConfigSet = false`, bind them all, then `Config.SaveOnConfigSet = true; Config.Save();`.
-- Apply edits to the .cfg live: a `FileSystemWatcher` on it with `SynchronizingObject = ThreadingHelper.SynchronizingObject` (events
-  arrive on the game's thread), a one-second debounce, `Config.Reload()` in try/catch, and **dispose it in `OnDestroy`** (hot reload).
-- **Multiplayer settings come from the server**: most popular mods (61 of 95) use **ServerSync**
-  (https://github.com/blaxxun-boop/ServerSync: a DLL merged into yours with ILRepack, as its README shows) or Jotunn's sync; for something small, copy
-  `BepInEx/claude/templates/ServerSettings.cs` (no library: mark a setting with `Synced.Add(Config.Bind(...))`). Gameplay values
-  (rewards, costs, ranges, timers, strengths: anything a player could set to gain an edge) are the server's, with a "Lock Configuration"
-  setting for admins in ServerSync; look-and-feel settings stay each player's own. Say which ones are synced in their descriptions
-  ("[Synced with Server]").
+- Apply edits to the .cfg live (a server owner edits the file while it runs). `ServerSettings.cs` does it for you; without it: a
+  `FileSystemWatcher` on the file, a one-second debounce, `Config.Reload()` in try/catch on the game's thread, and **dispose it in
+  `OnDestroy`** (hot reload).
+- **Multiplayer settings come from the server.** Copy `BepInEx/claude/templates/ServerSettings.cs` (no library, hot-reloads):
+  `Synced.Bind("1 - Rewards", "Percent", 100, "...", range)` instead of `Config.Bind` for every gameplay value (rewards, costs, ranges,
+  timers, strengths: anything a player could set to gain an edge); look-and-feel settings stay each player's own (`Config.Bind`). It
+  gives what ServerSync does that matters, without its catches:
+  - joining players get the server's values; leaving gives the player's own back, and their .cfg keeps their own even if it's saved meanwhile;
+  - edits to the server's .cfg reach everyone without a restart;
+  - the host and the server's admins (`adminlist.txt`) change the server's values from their own game in Configuration Manager (the
+    server checks the admin list on the connection itself and saves its file); everyone else sees them read-only there;
+  - `Synced.Server` says whether the server has the mod (and `ServerVersion` which), for the next point;
+  - `Synced.AddText(key, own, use)` for data the server decides that isn't one setting (a pack, a list, a table): sent at join and on
+    `TextChanged(key)`, compressed and in parts when big (Steam refuses a message over 512 KB and the connection stalls).
 
-**Versions between players**: ServerSync's `MinimumRequiredVersion` (or Jotunn's `[NetworkCompatibility]`) turns away a player whose version
-differs, which matters when the mod adds pieces or items (a client can spawn something the server doesn't know). For a mod only some players
-need, keep it optional (`ModRequired = false`): a strict check kicks everyone who doesn't have it.
+  Most popular mods use **ServerSync** (https://github.com/blaxxun-boop/ServerSync, merged in with ILRepack) or Jotunn's sync. Know
+  their behaviour when you meet it: ServerSync with its lock **off** lets any player rewrite the server's .cfg; with `ModRequired` and no
+  minimum version it demands the exact same version and kicks everyone without the mod, vanilla players too.
+
+**Versions between players**: never kick by default (vanilla players and friends with an older copy should still get in). What matters is
+the server having the mod when the mod adds pieces or items: a player who has it, on a server that doesn't, builds things the server
+deletes. `Synced.NeedsServer(piecePrefab)` (or a `Recipe`) keeps them out of the menus there and back everywhere else; tell the player
+why on `Synced.ServerChanged` when `Synced.Server` is `Missing` (Jet Skis says "isn't installed on this server" once they're in the
+world). A different version is written to the log with both numbers. A player *without* the mod on a server that has it loses nothing.
 
 **Words in the player's language.** Never hard-code English that players see: every word goes through the game's own translations
 (`Localization`), so it follows the game's Language setting. Popular mods use **LocalizationManager** (blaxxun-boop: embedded
@@ -188,6 +201,11 @@ need, keep it optional (`ModRequired = false`): a strict check kicks everyone wh
   (`using static ...Translations;`): the text with `{0}` `{1}` filled in. In the game's own fields (a piece's `m_name` and
   `m_description`, an item's, a status effect's) the key itself, `"$mymod_lantern"`: the game translates it there.
 - **Keys start with your mod's name** (`recycler_`), like everything else that's yours (below).
+- **A setting's value in a text the game shows itself** (an item's, piece's, skill's or effect's description): write `{heal}` in every
+  language's text and `Translations.Fill("mymod_potion_desc", "heal", HealSetting)`; it follows the setting, the server's values and
+  the language. `check_translations.py` checks that every language keeps `{heal}`.
+- **Words that come from data** (a pack file, a list the server sends): `Translations.AddWords(group, language, words)` (English as
+  the fallback), `RemoveWords(group)` when the data goes. Players' own correction files still win over both.
 - **The game's own words first**: item, piece, creature and station names come from their `m_name` through
   `Localization.instance.Localize`; common words have keys already (`$menu_cancel`, `$menu_close`, `$menu_yes`, `$menu_no`,
   `$hud_on`, `$hud_off`, `$menu_remove`, `$radial_all`...). `language dump` (Claude Tools) saves every word the game has, in the language
@@ -212,7 +230,8 @@ need, keep it optional (`ModRequired = false`): a strict check kicks everyone wh
 - Translations made by AI are said to be so on the mod's page, with how to correct one: a player puts the same file name in
   `BepInEx/config/translations/<mod GUID>/` (only the lines they change), and it wins over the built-in one.
 
-**Items, pieces, creatures, skills, status effects**: the game's own assets are in AssetBundles. Embed yours as a resource and load it once,
+**Items, pieces, creatures, skills, status effects**: most of our mods clone the closest game prefab in code and change it (Jet Skis is the
+raft underneath; see **valheim-look**). For your own Unity models, the game's own assets are in AssetBundles: embed yours as a resource and load it once,
 reusing it if it's already loaded (a hot reload would otherwise fail with "already loaded"):
 `Resources.FindObjectsOfTypeAll<AssetBundle>().FirstOrDefault(b => b.name == name) ?? AssetBundle.LoadFromStream(stream)`.
 Then register as in **valheim-pitfalls** ("Register pieces and items from the scene, early"). Two ways most popular mods do the
@@ -224,6 +243,41 @@ registering:
 - **Jotunn** (a mod players must also install; 25 of the top 100 require it): `PrefabManager.OnVanillaPrefabsAvailable`,
   `PieceManager.Instance.AddPiece`, `ItemManager.Instance.AddItem`.
 A piece with no cost is free to build: refuse to register it.
+
+What to set on what you add (the things the managers above do, done our way: by name, again on every register, hot-reload safe).
+`BepInEx/claude/templates/Content.cs` does the registering for items, recipes, smelting/cooking/fermenting, creature drops and trader
+items (`Content.Items`, `Content.Recipe`, `Content.Conversion`, `Content.Drop`, `Content.Sell`, and `RemoveAll` on unload); with
+`ItemReload.cs`, register items through `ItemReload.Replace` and call `Content.ItemExtras`:
+- **Costs and stations as settings** a server owner can change: `BepInEx/claude/templates/Costs.cs` reads "FineWood:12, BronzeNails:30"
+  (pieces: `Item:amount[:false]` for no refund; recipes: `Item:amount[:per upgrade level]`) and "forge:2" for a station and level. Make
+  them server settings (`Synced.Bind`: the client pays when it builds, so it must charge the server's cost), apply when you build the
+  prefab and again on `SettingChanged`. A setting with any mistake keeps the last good cost, whole.
+- **Build menu**: vanilla categories (`Piece.m_category`) **and** the usage tags the menu now lists by (`Piece.m_usage`, flags such as
+  `Furniture`, `Storage`, `Lighting`, `Transport`): a clone keeps its source's tags (a "Misc" slot machine cloned from a chest keeps
+  the chest's). Don't add custom category tabs: the libraries that do patch `System.Enum` for the whole game and fight each other.
+- **A crafting station of your own**: a unique `CraftingStation.m_name` (`$yourmod_press`), because the game matches stations by that
+  name alone (**valheim-pitfalls**). An **extension** is easiest cloned from `piece_workbench_ext1` with its `StationExtension` pointed at
+  your station (`m_craftingStation`, `m_maxStationDistance`).
+- **Recipes**: one `Recipe` per way to make it, named `Recipe_<prefab>[_<way>]`, replaced by name in `ObjectDB.m_recipes` on every
+  register. Repairs and upgrades use the first one. `m_noCraftOnlyUpgrade` for "upgrade only", `m_repairStation` for repairs elsewhere.
+- **Items built in code**: set `itemDrop.m_itemData.m_dropPrefab = prefab` yourself (a prefab kept under an inactive holder never runs
+  `ItemDrop.Awake`, and an item without it is saved without a name and lost on load). Register the status effects it uses
+  (`m_consumeStatusEffect`, `m_equipStatusEffect`, `m_attackStatusEffect`, `m_setStatusEffect`) in `ObjectDB.m_StatusEffects` too.
+- **Smelting, cooking, fermenting, creature drops, traders**: remove your own earlier entry by name before adding (**valheim-pitfalls**,
+  "Lists on the game's prefabs grow with every load"); a trader through a `Trader.GetAvailableItems` postfix. A creature drop's
+  `m_amountMax` is never reached (the game rolls `Random.Range(min, max)` on whole numbers): store one more than the most you mean.
+- **Status effects of your own**: `BepInEx/claude/templates/StatusEffects.cs` (made in code, registered by name again on every
+  register, taken off every character this game has on unload and put back with their time left after a reload). **Skills**:
+  `BepInEx/claude/templates/Skill.cs` (a fixed id that never changes, its name in the skills window and messages, a backup in the
+  character's data so a session without the mod doesn't wipe it, `raiseskill`/`resetskill` and tab completion, a live gain factor
+  for a server setting). Read "A custom skill's
+  levels go when the mod is missing once" and "A status effect's copies share their lists" in **valheim-pitfalls** first.
+- **Build-menu picture**: `BepInEx/claude/templates/Icon.cs` draws one from the prefab (`Icon.Make(piece)`, `Icon.MakeItem(item)`),
+  falling back to an embedded PNG; see **valheim-look**.
+- **Snap points**: the game only reads direct children of the piece's root tagged `snappoint` (active or not), and only while
+  placing: the ghost snaps when one of its points is within 0.5 m of a nearby piece's. `BepInEx/claude/templates/SnapPoints.cs`
+  (`Clear`, `Add`, `Box(piece, min, max)`) makes them the way the game does. Chests, tables, stations, portals and the raft have none;
+  walls, floors and poles do, so a clone of a pole keeps the pole's points 1 m above and below: clear them.
 
 **Multiplayer actions**: register RPCs with names starting with your mod's (`YourMod_RequestTake`); send the request to the object's owner;
 in the handler check `ZNetView.IsOwner()` again and send back a "no" (so nothing is lost) when it isn't; identify the player from the

@@ -287,6 +287,15 @@ namespace ClaudeTools
             _reloading = true;
             try
             {
+                if (loaded != null && loaded.Metadata.GUID == Guid)
+                {
+                    // Claude Tools itself: a helper from this copy hands over once this request's answer is written (see Handover)
+                    output(new JObject { ["reloading"] = $"{Name} {Version}", ["dll"] = dll, ["note"] = "the new copy starts in a moment: send help or devmods next (other mods add their commands back within 5 seconds)" });
+                    var helper = new GameObject("ClaudeTools_Handover");
+                    DontDestroyOnLoad(helper);
+                    helper.AddComponent<Handover>().Begin(dll, loaded, Host(), GetType());
+                    yield break;
+                }
                 JObject level = ReloadLevel(dll);
                 string notNow = NotNow((string)level["level"]);
                 if (notNow != null && !force)
@@ -299,7 +308,6 @@ namespace ClaudeTools
                 {
                     if (loaded.Instance != null && loaded.Instance.gameObject != host && loaded.Instance.gameObject != _devHost)
                     { error($"{loaded.Metadata.Name} wasn't loaded from scripts by a reloader: restart the game to load the new build"); yield break; }
-                    if (loaded.Metadata.GUID == Guid) { error("Claude Tools can't reload itself: restart the game (or press F6 with ScriptEngine)"); yield break; }
                     Chainloader.PluginInfos.Remove(loaded.Metadata.GUID);
                     if (loaded.Instance != null) Destroy(loaded.Instance);
                 }
@@ -322,6 +330,59 @@ namespace ClaudeTools
                 });
             }
             finally { _reloading = false; }
+        }
+
+        /// <summary>
+        /// Reloading Claude Tools itself: it can't unload the code that carries out the request, so a helper from the old copy (its code stays
+        /// loaded) waits until the request's answer is written, takes the old copy down (its patches, commands and watchers go in OnDestroy),
+        /// and a frame later starts the new build on the same object. The mods already loaded stay as they are (BepInEx's list keeps them, and
+        /// they add their commands to the new copy themselves). If the new build doesn't start, the old copy is put back.
+        /// </summary>
+        private sealed class Handover : MonoBehaviour
+        {
+            private string _dll;
+            private PluginInfo _old;
+            private GameObject _host;
+            private Type _oldType;
+            private int _frames;
+
+            public void Begin(string dll, PluginInfo old, GameObject host, Type oldType) { _dll = dll; _old = old; _host = host; _oldType = oldType; }
+
+            private void Update()
+            {
+                if (++_frames < 3) return;   // (the request's answer is written first)
+                enabled = false;
+                StartCoroutine(Run());
+            }
+
+            private IEnumerator Run()
+            {
+                string guid = _old.Metadata.GUID;
+                Chainloader.PluginInfos.Remove(guid);
+                if (_old.Instance != null) Destroy(_old.Instance);
+                yield return null;   // the old copy's OnDestroy runs now
+                bool started = false;
+                try
+                {
+                    foreach (Prepared p in InDependencyOrder(Prepare(_dll, out _)))
+                        if (StartPlugin(p, _host, out string why)) started = true;
+                        else Debug.LogWarning($"[Claude Tools] reload: {p.Guid} not started: {why}");
+                }
+                catch (Exception e) { Debug.LogError("[Claude Tools] reload: could not load the new build: " + e.Message); }
+                if (!started)
+                {
+                    try
+                    {
+                        Chainloader.PluginInfos[guid] = _old;
+                        Component back = _host.AddComponent(_oldType);
+                        Traverse.Create(_old).Property<BaseUnityPlugin>("Instance").Value = (BaseUnityPlugin)back;
+                        Debug.LogWarning("[Claude Tools] reload: the new build didn't start, so the old copy is back");
+                    }
+                    catch (Exception e) { Debug.LogError("[Claude Tools] reload: the old copy couldn't come back either (restart the game): " + e.Message); }
+                }
+                else Debug.Log("[Claude Tools] reloaded itself");
+                Destroy(gameObject);
+            }
         }
 
         /// <summary>AutoReload: a DLL in scripts rebuilt (and settled for a second and a half) reloads when its level allows it now.</summary>

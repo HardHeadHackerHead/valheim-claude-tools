@@ -1,6 +1,6 @@
 ---
 name: valheim-thunderstore
-description: Release a Valheim mod on Thunderstore (where r2modman and Thunderstore Mod Manager get mods), or publish an update to one - the package, its manifest, icon and README, Thunderstore's rules (AI disclosure included), testing the zip, and uploading with the Thunderstore CLI (tcli). Use when someone wants to publish, release, upload or share a mod on Thunderstore, or update one that is there.
+description: Release a Valheim mod on Thunderstore (where r2modman and Thunderstore Mod Manager get mods) and Hexium (where Gale gets them), or publish an update to one - the package, its manifest, icon and README, Thunderstore's rules (AI disclosure included), testing the zip, uploading with the Thunderstore CLI (tcli) and Hexium's API. Use when someone wants to publish, release, upload or share a mod on Thunderstore or Hexium, or update one that is there.
 ---
 
 # Releasing a mod on Thunderstore
@@ -166,3 +166,31 @@ the toml), read the description and categories again (3b: new features bring new
 Thunderstore restart the game after updating, so the reload level doesn't matter there; it still matters for your own testing.
 
 To retire a mod: deprecate it on its Thunderstore page (it stays installable for existing modpacks).
+
+## 7. Hexium too (the same zip, a second site)
+
+Hexium (https://hexium.gg/c/valheim/) is a newer mod site that Gale installs from (r2modman doesn't). Many of the big Valheim authors
+are on it. It takes **the same zip**: publish the one you just tested and published on Thunderstore, with the same version, so both
+sites have the same build. It doesn't require an AI tag (keep the README line anyway), lets you edit the README on the site without a
+new version, and has comments.
+
+- **Once**: the player signs in at hexium.gg with Discord, makes a team (the same name as on Thunderstore, so dependency strings match),
+  and on the team's settings page creates an API token. It goes in `HEXIUM_AUTH_TOKEN` the same way as `TCLI_AUTH_TOKEN` (step 1).
+- **Uploading** uses Thunderstore's upload API at `https://hexium.gg` with `Authorization: Bearer <token>`:
+  `POST /api/experimental/usermedia/initiate-upload/` `{filename, file_size_bytes}`, `PUT` each part to its `upload_urls[].url` (keep
+  the `ETag`), `POST .../usermedia/<uuid>/finish-upload/` `{parts: [{ETag, PartNumber}]}`, then `POST /api/experimental/submission/submit/`
+  `{upload_uuid, author_name: <team>, communities: ["valheim"], has_nsfw_content: false, categories: [], community_categories: {valheim: [...]}}`.
+- **Categories are Hexium's own** (`GET /api/experimental/community/valheim/category/`: "Quality of Life", "Storage", "Pieces", "User
+  Interface", "Open Source"...), not Thunderstore's slugs. Map them, and add the ones Thunderstore has no word for.
+- **Where it installs**: `POST /api/mod/<team>/<name>/set-metadata` `{install_location: "client" | "server" | "both", categories}`
+  with the same token (client-side only: `client`; both client-side and server-side: `both`).
+- A new upload is hidden for about a minute while it's virus-scanned, then shows at `https://valheim.hexium.gg/mods/<team>/<name>`.
+  `GET /api/experimental/package/<team>/<name>/<version>/` answers 200 once it's there (also the check before uploading a version again).
+  The team has a setting that makes API uploads start **private**: then the player makes each one public on the site, or turns it off.
+- **10 uploads per 10 minutes** (measured October 2026). The 11th submit answers 400 "You are uploading too many mods. Please wait a
+  few minutes." until the oldest of the 10 is 10 minutes old. Refused tries don't count. To publish many mods, send 10, then wait
+  until 10 minutes after the first of them. A refused upload is used up: submitting its `upload_uuid` again gives "Upload is not
+  complete", so a retry uploads the file again.
+- Full API: https://hexium.gg/api/docs/ (spec at `/api/openapi.json`). Only on the website: editing the README without a new version,
+  answering comments, deprecating. A working script for all of this (one mod or many, a dry run first) is `tools/hexium_publish.py` in
+  https://github.com/HardHeadHackerHead/valheim-mods, which its `thunderstore.ps1 -Publish` runs after `tcli publish`.

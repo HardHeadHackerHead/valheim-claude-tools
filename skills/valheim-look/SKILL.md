@@ -180,6 +180,16 @@ Hover prompts in the game's own format, localized: `"[<color=yellow><b>$KEY_Use<
 - **Materials come from the game's prefabs**, never `Shader.Find` (the game strips unused shaders; a dedicated server draws nothing):
   wood, stone and iron by name from pieces (`Look.cs` in the modelkit does this), plain colours as copies of a game material with its
   texture removed, fire from `piece_groundtorch_wood`'s particles. Destroy materials you create when you're done with them.
+- **Your own Unity models (AssetBundles)**: give their materials the game's look the same way: a material named after a game material
+  can be swapped for the real one when you register (the managers' convention is `_REPLACE_<game material name>`), and the game's
+  `Custom/Piece` shader (snow and wetness on pieces; `Custom/Creature`, `Custom/Vegetation` likewise) is taken from a game prefab's
+  material, not found by name or by loading every bundle's shaders. Do it inside your register, every time, not once behind a "done" flag
+  (a hot reload or a second world would skip it).
+- **Build-menu picture**: draw it from the prefab when there's no hand-made one: a camera and light that see only a layer of their own,
+  the prefab copied with `ZNetView.m_forceDisableInit = true` (else in a world it makes a real networked object), particles left out of
+  the framing, cleanup in `finally`; for an item, from its `attach` child, written to `m_shared.m_icons`. Fall back to an embedded PNG.
+  `BepInEx/claude/templates/Icon.cs` does all of it: `Icon.Make(piecePrefab)` (a camera direction and a pose callback if needed),
+  `Icon.MakeItem(itemPrefab, setIcon: true)`. Check the picture with `render` and in the build menu (lighting can differ).
 - **Hand-made models**: the modelkit (`BepInEx/claude/modelkit`): describe the model as boxes, cylinders and spheres in Python, look at
   it from four sides, write it as C#, build it with `ModelBuilder.cs` in the game's materials. It also draws the **game's real pieces**
   offline (`extract_meshes.py`, `preview.py`), so you can match their size and style. Read its README.

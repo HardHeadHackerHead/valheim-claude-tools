@@ -75,13 +75,19 @@ a bug (paid half, paid twice, an idol counted, an item given before payment).
   creatures for lag.
 - A dedicated server has no player (`Player.m_localPlayer` is null), no camera and nothing is drawn: guard UI and visual code, and
   never let a visual failure stop a piece or item being registered.
-- If the mod adds pieces or items, the server needs it too, and every player needs the same version.
+- If the mod adds pieces or items, the server needs it too: mark them with `Synced.NeedsServer` (`ServerSettings.cs`). Join a server
+  **without** the mod: they're gone from the menus, the player is told why, and nothing they had is lost. Join one with an **older**
+  version: the log names both versions.
 
 ## 4b. Settings and versions
 
-- Gameplay settings synced from the server (ServerSync or Jotunn), look-and-feel ones local; test a synced setting on a dedicated server
-  with a second player.
-- Decide the version check: required (pieces, items, anything both sides must agree on) or optional (a client-side helper).
+- Gameplay settings synced from the server (`ServerSettings.cs`, ServerSync or Jotunn), look-and-feel ones local. On a dedicated server
+  with a second player: a synced setting reaches the client; editing the server's .cfg reaches everyone without a restart; an admin
+  changes one in Configuration Manager and a non-admin sees it read-only; after leaving, the player's own values are back, and so is
+  their .cfg.
+- Cost settings (`Costs.cs`): put a typo in one (`Wod:10`) and check the piece keeps its old cost and the log says why.
+- Versions: don't kick players for a missing or different version unless both sides truly must match; keep the server-has-the-mod
+  check for pieces and items instead (above).
 - Every word in `$` keys with an English translation file; settings with ranges and clear descriptions.
 - Everything you registered is named after your mod (prefabs, RPCs, keys, commands; **valheim-compat** rule 11), and no command name
   hides another mod's: `help` lists every command with the mod it comes from.

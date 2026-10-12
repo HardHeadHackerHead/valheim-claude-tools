@@ -24,6 +24,14 @@ Take the piece off the build-menu list you put it on, keeping that `PieceTable` 
 hammer can't be looked up, but its list lives on. A destroyed piece left on it makes `Player.UpdateKnownRecipesList` throw on every
 change to the bag, between `DoCrafting`'s `AddItem` and `ConsumeResources`: every craft is free. Sweep `p == null` entries when registering.
 
+**A server without the mod deletes them too.** A player who has the mod, on a server that doesn't (a vanilla dedicated server, a host who
+never installed it), can build a piece or drop an item that the server deletes as soon as its area loads, with whatever was in it. Keep
+such pieces and recipes out of the menus there: `NeedsServer(prefab)` / `NeedsServer(recipe)` in the `ServerSettings.cs` template (it asks
+the server over its own connection, and hides them while it waits for the answer); a creature a player summons (a companion) checks
+`Synced.Server` before it spawns, and refuses with a message. Never decide "the server has the mod" from a routed
+RPC: its sender id is whatever the packet claims. The other way round is harmless: a player *without* the mod on a server that has it
+just doesn't see those objects (only the host deletes what it doesn't know).
+
 ## The player's inventory height is reset at every spawn
 
 `Player.OnSpawned` calls `Player.SetInventorySize(rows)`, which sets the height and then `Humanoid.DropInvalidItems()` drops everything
@@ -142,6 +150,13 @@ other players' buildings lose their ground and collapse, their items vanish. Onl
 anything another piece now stands on or uses, and wait until the area is fully loaded (`ZNetScene.instance.IsAreaReady`: a zone's
 terrain loads before its pieces). When in doubt, leave it.
 
+## A cost setting with a mistake must keep the old cost
+
+When server owners can change what something costs, a typo must never make it free or cheaper: refuse the whole setting and keep the
+last good cost (PieceManager drops a misspelt item and builds the rest, so `Wod:10` makes a piece free). The `Costs.cs` template does
+this. Read numbers with `CultureInfo.InvariantCulture` (on a German PC `0.5` reads as 5). Pieces already standing keep the cost they were
+built with until their area reloads, so a raised cost refunds more when an old piece is taken down: say so, don't rewrite placed pieces.
+
 ## Rewards must not be gamed
 
 - **Leaving must never pay better than losing**: logging out, quitting or a crash mid-contest gets at most what giving up gets.
@@ -154,10 +169,58 @@ terrain loads before its pieces). When in doubt, leave it.
 - Work out the expected return of anything that pays coins (a slot machine, a contest) and keep it below 100% with the default settings,
   decided by the server.
 
-## Item and player custom data is shared
+## Item and player custom data is shared, and the game drops it in places
 
 `m_customData` holds every mod's saved data (backpack contents, enchantments). Never replace the dictionary; only your own prefixed keys.
-Moving items through `Inventory.Save`/`Load` keeps it.
+`Inventory.Save`/`Load` keep it, but:
+- **An upgrade makes a new item**: `InventoryGui.DoCrafting` removes the old one and adds a fresh one by name, with no custom data. Copy
+  your keys over: a `DoCrafting` prefix notes them from `m_craftUpgradeItem` (and its grid position), a postfix puts them on the new item
+  there, a finalizer forgets them (QualityOfLife's `Plugin.UpgradeTags.cs` in https://github.com/HardHeadHackerHead/valheim-mods).
+- **Stacking looks only at name, quality and world level** (`Inventory.FindFreeStackItem`, and `ItemDrop.AutoStackItems` on the ground):
+  two items with different data merge and one's data is gone. Items that carry data get `m_maxStackSize = 1` and `m_autoStack = false`;
+  for marks on the game's own items (a loan), keep marked and unmarked stacks apart: a `FindFreeStackItem` postfix while your item is
+  being added, an `InventoryGrid.DropItem` prefix, and mark the item **before** it goes in (Arena's `KeepApart.cs`). Splitting a stack
+  copies the data to both halves.
+- An item lying on the ground keeps a change only through `ItemDrop.SaveToZDO`, on the game that owns it.
+- Data set on a prefab's own item is copied into every new one made from it.
+
+## Lists on the game's prefabs grow with every load
+
+A smelter's, cooking station's or fermenter's `m_conversion`, a creature's `CharacterDrop.m_drops`, spawn lists and `Trader.m_items` live
+on prefabs that last the whole session. Adding to them in an Awake postfix adds again at every world load and every hot reload (the
+popular PieceManager and ItemManager libraries both do this: a smelter ends up taking your ore three times over). Remove your own
+entries **by name** before adding (`c.m_to != null && c.m_to.name == "yourmod_ingot"`; not by reference, an old copy's prefab stays alive
+after a hot reload). For a trader, prefer a `Trader.GetAvailableItems` postfix (gone with `UnpatchSelf`, no prefab changed; check
+`m_requiredGlobalKey` yourself, and keep your `TradeItem` objects and their order fixed: the store window indexes the list). The
+`Content.cs` template does all of these by name.
+
+## A crafting station is known by its name
+
+Recipes, repairs and extensions match a station by `CraftingStation.m_name`, nothing else: a cloned workbench that keeps
+`$piece_workbench` *is* a workbench (and keeps the workbench's `PlayerBase` child: a base for raids and comfort). Give yours a
+`$yourmod_` name and remove what it shouldn't bring. Repairs and upgrades use the **first** recipe for the item (`ObjectDB.GetRecipe`,
+by `m_shared.m_name`), and a repair needs `min(station level, 4) >= m_minStationLevel`: a recipe that asks for level 5 can't be repaired.
+`Recipe.m_noCraftOnlyUpgrade` gives "can be upgraded here, not made".
+
+## A custom skill's levels go when the mod is missing once
+
+`Skills.Load` keeps only skill types the game's enum knows (`IsSkillValid` is `Enum.IsDefined`); mods add theirs by patching it. One load
+without the mod (a second mod-manager profile on the same character, the mod switched off, or failing after a game update) drops the
+level, and the next save makes it final. Back it up in `Player.m_customData` (`yourmod.skill` = level and accumulator, written in a
+`Player.Save` prefix) and put it back in a `Player.Load` postfix when the skill is missing. The skill's id is a hash of a fixed string:
+never change it (a mod moving off SkillManager keeps `Math.Abs("English name".GetStableHashCode())`). Deaths lower it like the
+game's skills, and with the game's skill cap on, it counts in the total. The `Skill.cs` template does the backup, the name and the
+console commands.
+
+## A status effect's copies share their lists
+
+Each character gets `StatusEffect.Clone()`, a memberwise copy: a `List` or `Dictionary` field in your subclass is the same object for
+everyone who has the effect. Make new ones in `Setup`. Effects aren't saved (only the guardian power is): one that must outlast a logout
+keeps its remaining time in `m_customData`. The HUD shows only effects with an `m_icon` that aren't `m_hidden`. Name it after your mod
+(its hash is `name.GetStableHashCode()`), and on unload take it off every character you own, then out of `ObjectDB`. The
+`StatusEffects.cs` template does the registering, the unloading and the hand-over to a reloaded copy. `Setup` runs again when an effect
+is put back after a reload: skip one-time things (a drink drunk, a "lit" message sent) while `StatusEffects.PuttingBack`, and carry state
+that isn't time (how drunk, how far burned) with `StatusEffects.ICarry`.
 
 ## Scaling a hit leaves its untyped damage alone
 
@@ -225,7 +288,9 @@ away you can't read.
 Everything a mod starts must stop in `OnDestroy`: patches (`UnpatchSelf`), file watchers (`Dispose`), coroutines and objects it made,
 commands and RPCs it registered (registering an RPC name twice throws, so remove yours first). The game never unloads a mod's old copy, so
 its **static fields live for the whole session**: set big static caches to null in `OnDestroy`, or every reload keeps another copy in
-memory. Libraries that patch with their own Harmony id (blaxxun-boop's managers) can't be undone: mark such a mod as needing a restart.
+memory. Libraries that patch with their own Harmony id (blaxxun-boop's and Azumatt's managers: from a static constructor, under one id
+shared by every mod that carries them) can't be undone: mark such a mod as needing a restart. Never patch .NET's own methods
+(`Enum.GetValues`, `Type.GetCustomAttributes`): every mod and the game go through them.
 
 A mod that registers pieces, items, creatures, recipes or status effects, or changes inventory sizes, can't be reloaded safely in a world:
 its reload level is `menu` (`modcheck` shows it, and Claude Tools' `reload` refuses it in a world). Reload it at the main menu, or restart.

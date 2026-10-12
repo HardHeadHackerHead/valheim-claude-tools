@@ -30,7 +30,7 @@ namespace ClaudeTools
         public const string Guid = "com.quad.claudetools";
         public const string OldGuid = "com.dhack.claudetools"; // (its id until 2026-10: settings move over by themselves, see Shared/Migration.cs)
         public const string Name = "ClaudeTools";
-        public const string Version = "1.2.11";
+        public const string Version = "1.2.12";
 
         internal static Plugin Instance;
         internal static BepInEx.Logging.ManualLogSource Log;
@@ -76,6 +76,8 @@ namespace ClaudeTools
         {
             _harmony?.UnpatchSelf();
             _stopping = true;
+            try { _requestWatcher?.Dispose(); } catch (Exception) { }
+            _requestWatcher = null;
             UnregisterConsole();
             ForgetCaches();
             if (Instance == this) Instance = null;
@@ -83,6 +85,11 @@ namespace ClaudeTools
 
         private float _nextScan;
         private bool _busy, _guideWritten;
+        // A new request file is noticed at once: Windows tells this watcher (nothing runs while none come), and the folder is read a moment
+        // later (the file has been written by then). The scan every second stays, in case a notice is missed.
+        private FileSystemWatcher _requestWatcher;
+        private volatile bool _requestArrived;
+        private const float RequestSettle = 0.05f;
 
         private void Update()
         {
@@ -104,14 +111,34 @@ namespace ClaudeTools
                     StartCoroutine(Screenshot(Path.Combine(ShotDir, Stamp() + ".png"), 0, p => player.Message(MessageHud.MessageType.TopLeft, "Screenshot saved for the assistant")));
             }
 
+            if (_requestArrived) { _requestArrived = false; _nextScan = Mathf.Min(_nextScan, Time.unscaledTime + RequestSettle); }
             if (_allowRequests.Value && !_busy && Time.unscaledTime >= _nextScan)
             {
                 _nextScan = Time.unscaledTime + 1f;
+                if (_requestWatcher == null) WatchRequests();
                 if (Directory.Exists(RequestDir))
                 {
                     string next = Directory.GetFiles(RequestDir, "*.txt").OrderBy(f => f, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
                     if (next != null) StartCoroutine(RunRequest(next));
                 }
+            }
+        }
+
+        private void WatchRequests()
+        {
+            try
+            {
+                Directory.CreateDirectory(RequestDir);
+                _requestWatcher = new FileSystemWatcher(RequestDir, "*.txt") { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size };
+                _requestWatcher.Created += (s, e) => _requestArrived = true;   // (another thread: Update reads the flag)
+                _requestWatcher.Changed += (s, e) => _requestArrived = true;
+                _requestWatcher.Renamed += (s, e) => _requestArrived = true;
+                _requestWatcher.EnableRaisingEvents = true;
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning("Requests are read once a second (can't watch the folder: " + e.Message + ")");
+                _requestWatcher = new FileSystemWatcher();   // (a placeholder: don't try again every second)
             }
         }
 

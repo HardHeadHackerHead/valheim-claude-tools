@@ -21,6 +21,8 @@ namespace ClaudeTools
     {
         private void RegisterBuiltIns()
         {
+            RegisterTerrain();   // clear, terrain, fields (Terrain.cs)
+            RegisterTesting();   // words, skills, playerdata, effects, itemdata, inv, craft (Testing.cs)
             RegisterPictureCommands();
             RegisterRenderCommands();
             RegisterLibraryCommands();
@@ -80,6 +82,7 @@ namespace ClaudeTools
                         ["name"] = name, ["id"] = it.m_shared.m_name, ["stack"] = it.m_stack, ["quality"] = it.m_quality,
                         ["durability"] = it.m_shared.m_useDurability ? Math.Round(100f * it.m_durability / Mathf.Max(1f, it.GetMaxDurability())) + "%" : null,
                         ["equipped"] = it.m_equipped, ["slot"] = new JArray(it.m_gridPos.x, it.m_gridPos.y),
+                        ["data"] = it.m_customData != null && it.m_customData.Count > 0 ? new JObject(it.m_customData.OrderBy(kv => kv.Key).Select(kv => new JProperty(kv.Key, kv.Value))) : null,
                     });
                     totals[name] = (totals.TryGetValue(name, out int n) ? n : 0) + it.m_stack;
                 }
@@ -239,6 +242,70 @@ namespace ClaudeTools
                 EnvMan.instance.m_debugTimeOfDay = true;
                 EnvMan.instance.m_debugTime = day;
                 output(new JObject { ["held"] = true, ["at"] = Clock(day) });
+                return null;
+            });
+
+            Builtin("play", "play [character] [world]: from the main menu, start that character in that single-player world (names as the menu shows them; " +
+                "left out: the ones the menu has selected) and wait until the player is in it (up to 3 minutes). The same as Start Game, the character, " +
+                "Start, the world, Start: for getting back into a test world after a restart", (a, output, error) => Play(a, output, error));
+
+            Builtin("logout", "logout: save and go back to the main menu, as the pause menu's Log Out does, and wait until it is there", (a, output, error) => LogOut(output, error));
+
+            Builtin("quit", "quit: save and close the game, as the pause menu's Quit does (in a world, the game saves the character and the world as it " +
+                "closes). Ask the player first; start it again with Steam (steam://rungameid/892970), then play", (a, output, error) =>
+            {
+                output(new JObject { ["quitting"] = true, ["saves"] = Player.m_localPlayer != null });
+                StartCoroutine(QuitSoon());   // (after this request's answer is written)
+                return null;
+            });
+
+            Builtin("console", "console <game console command>: run one of the game's own console commands (raiseskill all 100, setkey defeated_eikthyr, " +
+                "setpower GP_Eikthyr, god, spawn Boar 3, tod 0.5...) and get back what it printed. A cheat command only where cheats are allowed (single " +
+                "player, the host): devcommands is switched on for that one command and back off. The game also gates cheat commands per character: the " +
+                "first time, `console confirmcheats` marks the character as cheated for good (no achievements): ask the player first", (a, output, error) =>
+            {
+                Terminal term = global::Console.instance;
+                if (term == null) { error("the game's console isn't there (no world loaded?)"); return null; }
+                string line = string.Join(" ", a.Skip(1)).Trim();
+                if (line.Length == 0) { error("console <command> [arguments], e.g. console raiseskill all 100 (the game's own `help` lists them: console help)"); return null; }
+                string name = line.Split(' ')[0].ToLowerInvariant();
+                var commands = AccessTools.Field(typeof(Terminal), "commands")?.GetValue(null) as IDictionary<string, Terminal.ConsoleCommand>;
+                if (commands == null || !commands.TryGetValue(name, out Terminal.ConsoleCommand cmd)) { error($"'{name}' isn't one of the game's console commands (console help lists them)"); return null; }
+                if (cmd.IsCheat && !CheatsAllowed()) { error(CheatRefusal("console " + name)); return null; }
+                if (cmd.IsCheat && name != "confirmcheats" && !Achievements.IsCheatedAtAll())
+                {
+                    error($"the game takes cheat commands like {name} only from a character marked as cheated: `console confirmcheats` does it for good " +
+                          "(this character then earns no achievements). Ask the player first");
+                    return null;
+                }
+                // what it prints goes to the console's own list: this command's lines are taken from a cleared list, and the player's put back
+                var buffer = AccessTools.Field(typeof(Terminal), "m_chatBuffer")?.GetValue(term) as List<string>;
+                List<string> before = buffer != null ? new List<string>(buffer) : null;
+                buffer?.Clear();
+                bool cheat = Terminal.m_cheat;
+                try
+                {
+                    if (cmd.IsCheat) Terminal.m_cheat = true;
+                    term.TryRunCommand(line, silentFail: false, skipAllowedCheck: true);
+                }
+                catch (Exception e) { error($"{name} threw: {e.GetBaseException().Message}"); }
+                finally
+                {
+                    if (cmd.IsCheat) Terminal.m_cheat = cheat;   // (devcommands itself isn't a cheat command: it keeps what it set)
+                    if (buffer != null)
+                    {
+                        var printed = new List<string>(buffer);
+                        buffer.Clear();
+                        buffer.AddRange(before);
+                        buffer.AddRange(printed);
+                        while (buffer.Count > 300) buffer.RemoveAt(0);
+                        output(new JObject
+                        {
+                            ["command"] = line,
+                            ["printed"] = new JArray(printed.Select(s => System.Text.RegularExpressions.Regex.Replace(s ?? "", "<[^>]+>", "")))
+                        });
+                    }
+                }
                 return null;
             });
 
@@ -447,6 +514,67 @@ namespace ClaudeTools
         }
 
         private static string Clock(float day) { int min = Mathf.RoundToInt(day * 1440f) % 1440; return $"{min / 60:00}:{min % 60:00}"; }
+
+        // ---- getting in and out of a world (play, logout, quit): the main menu's and the pause menu's own steps ----
+
+        private IEnumerator Play(string[] a, Action<JObject> output, Action<string> error)
+        {
+            if (Player.m_localPlayer != null) { error("already in a world (logout first)"); yield break; }
+            FejdStartup menu = FejdStartup.instance;
+            if (menu == null) { error("not at the main menu yet (wait a moment after the game starts, then play again)"); yield break; }
+            string wantCharacter = a.Length > 1 ? a[1].Replace('_', ' ') : null, wantWorld = a.Length > 2 ? a[2].Replace('_', ' ') : null;
+
+            List<PlayerProfile> profiles = SaveSystem.GetAllPlayerProfiles();
+            PlayerProfile profile = wantCharacter == null ? null
+                : profiles.FirstOrDefault(p => string.Equals(p.GetName(), wantCharacter, StringComparison.OrdinalIgnoreCase) || string.Equals(p.GetFilename(), wantCharacter, StringComparison.OrdinalIgnoreCase));
+            if (wantCharacter != null && profile == null) { error($"no character called {wantCharacter} (there are: {string.Join(", ", profiles.Select(p => p.GetName()).ToArray())})"); yield break; }
+
+            menu.OnStartGame();   // the character screen
+            yield return null;
+            if (profile != null) AccessTools.Method(typeof(FejdStartup), "SetSelectedProfile")?.Invoke(menu, new object[] { profile.GetFilename() });
+            yield return null;
+            menu.OnCharacterStart();   // the world screen
+            yield return null;
+            var worlds = AccessTools.Field(typeof(FejdStartup), "m_worlds")?.GetValue(menu) as List<World>;
+            if (worlds == null || worlds.Count == 0) { error("this game has no worlds (make one in the menu)"); yield break; }
+            if (wantWorld != null)
+            {
+                int i = worlds.FindIndex(w => string.Equals(w.m_name, wantWorld, StringComparison.OrdinalIgnoreCase));
+                if (i < 0) { error($"no world called {wantWorld} (there are: {string.Join(", ", worlds.Select(w => w.m_name).ToArray())})"); yield break; }
+                AccessTools.Method(typeof(FejdStartup), "SetSelectedWorld")?.Invoke(menu, new object[] { i, true });
+            }
+            if (menu.m_openServerToggle != null) menu.m_openServerToggle.isOn = false;   // single player, not hosting
+            yield return null;
+            var world = AccessTools.Field(typeof(FejdStartup), "m_world")?.GetValue(menu) as World;
+            string character = profile?.GetName() ?? Game.instance?.GetPlayerProfile()?.GetName();
+            menu.OnWorldStart();
+
+            float started = Time.unscaledTime;
+            while (Player.m_localPlayer == null && Time.unscaledTime - started < 180f) yield return null;
+            if (Player.m_localPlayer == null) { error($"the world {world?.m_name} didn't load within 3 minutes (a question on screen? screen list shows it)"); yield break; }
+            output(new JObject
+            {
+                ["character"] = Player.m_localPlayer.GetPlayerName(),
+                ["world"] = world?.m_name,
+                ["seconds"] = Math.Round(Time.unscaledTime - started, 1)
+            });
+        }
+
+        private IEnumerator LogOut(Action<JObject> output, Action<string> error)
+        {
+            if (Game.instance == null || Player.m_localPlayer == null) { error("not in a world"); yield break; }
+            Game.instance.Logout(save: true, changeToStartScene: true);
+            float started = Time.unscaledTime;
+            while (FejdStartup.instance == null && Time.unscaledTime - started < 60f) yield return null;
+            if (FejdStartup.instance == null) { error("the main menu didn't come back within a minute"); yield break; }
+            output(new JObject { ["atMainMenu"] = true, ["seconds"] = Math.Round(Time.unscaledTime - started, 1) });
+        }
+
+        private static IEnumerator QuitSoon()
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+            Application.Quit();   // (in a world, Game.OnApplicationQuit saves the character and the world)
+        }
 
         private static IEnumerator Wait(float seconds)
         {

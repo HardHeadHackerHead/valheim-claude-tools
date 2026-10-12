@@ -33,6 +33,12 @@
     <EmbeddedResource Include="../../templates/ItemReload.cs" LogicalName="templates/ItemReload.cs" />
     <EmbeddedResource Include="../../templates/Translations.cs" LogicalName="templates/Translations.cs" />
     <EmbeddedResource Include="../../templates/ServerSettings.cs" LogicalName="templates/ServerSettings.cs" />
+    <EmbeddedResource Include="../../templates/Costs.cs" LogicalName="templates/Costs.cs" />
+    <EmbeddedResource Include="../../templates/Content.cs" LogicalName="templates/Content.cs" />
+    <EmbeddedResource Include="../../templates/Skill.cs" LogicalName="templates/Skill.cs" />
+    <EmbeddedResource Include="../../templates/Icon.cs" LogicalName="templates/Icon.cs" />
+    <EmbeddedResource Include="../../templates/StatusEffects.cs" LogicalName="templates/StatusEffects.cs" />
+    <EmbeddedResource Include="../../templates/SnapPoints.cs" LogicalName="templates/SnapPoints.cs" />
     <!-- A whole mod project to start from (also template/ in the mod manager repo: tools/sync_project_template.py keeps that copy the same). -->
     <EmbeddedResource Include="../../templates/project/**" Exclude="../../templates/project/**/bin/**;../../templates/project/**/obj/**"
                       LogicalName="templates/project/%(RecursiveDir)%(Filename)%(Extension)" />

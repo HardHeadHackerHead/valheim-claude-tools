@@ -86,6 +86,18 @@ namespace ClaudeTools
                             "assembly to code looking for the other's (another mod's lookup, a reference by name), and a player copying DLLs into one folder overwrites one.",
                             "Give the assembly a name that is yours (<AssemblyName>YourName.ModName</AssemblyName>); for a mod already out, weigh it against " +
                             "the old file left behind by an update (a mod manager replaces files by name).");
+                    // the starter project's names, never changed: its GUID (com.yourname.examplemod), assembly and namespace (ExampleMod), YourName.Shared
+                    var placeholders = new List<string>();
+                    foreach (JObject pl in plugins)
+                        if (IsPlaceholder((string)pl["guid"])) placeholders.Add($"the GUID \"{pl["guid"]}\"");
+                    if (IsPlaceholder(asm.Name.Name)) placeholders.Add($"the assembly name \"{asm.Name.Name}\"");
+                    foreach (string ns in asm.MainModule.Types.Select(t => t.Namespace).Where(n => !string.IsNullOrEmpty(n)).Select(n => n.Split('.')[0]).Distinct().Where(IsPlaceholder).Take(3))
+                        placeholders.Add($"the namespace \"{ns}\"");
+                    if (placeholders.Count > 0)
+                        Add("problem", "placeholder-name", Path.GetFileName(dll), "It still has the starter project's names: " + string.Join(", ", placeholders.ToArray()) + ".",
+                            "The GUID tells mods apart for ever (saves, settings, the mod manager, Thunderstore): every mod made from the template that kept it clashes with the others, " +
+                            "and a new GUID later makes players' installs see a different mod.",
+                            "Rename before the first release: the GUID (com.<yourname>.<modname>), the Name, the folder and csproj, <AssemblyName>, and the namespace (also YourName.Shared).");
                     // how it may be reloaded: what the author says ([assembly: AssemblyMetadata("ClaudeTools.Reload", "world|menu|restart")]),
                     // and libraries merged in that patch with their own Harmony ids (blaxxun-boop's managers), which unloading can't undo
                     foreach (CustomAttribute a in asm.CustomAttributes.Where(a => a.AttributeType.Name == "AssemblyMetadataAttribute" && a.ConstructorArguments.Count == 2))
@@ -312,6 +324,10 @@ namespace ClaudeTools
         /// <summary>blaxxun-boop's managers (merged into a mod as source or with ILRepack) patch the game with their own Harmony ids.</summary>
         private static readonly HashSet<string> ManagerNamespaces = new HashSet<string>
             { "ItemManager", "PieceManager", "CreatureManager", "LocationManager", "SkillManager", "StatusEffectManager" };
+
+        // The template's placeholders (com.yourname.examplemod, ExampleMod, YourName.Shared). No real GUID or name of ours contains either word.
+        private static bool IsPlaceholder(string s) =>
+            !string.IsNullOrEmpty(s) && (s.IndexOf("yourname", StringComparison.OrdinalIgnoreCase) >= 0 || s.IndexOf("examplemod", StringComparison.OrdinalIgnoreCase) >= 0);
 
         private static bool Risky(JObject p) =>
             (string)p["kind"] == "transpiler" || (string)p["kind"] == "hook" || ((string)p["skips"] ?? "never") != "never" || (bool?)p["changesResult"] == true || p["changesArgs"] != null;

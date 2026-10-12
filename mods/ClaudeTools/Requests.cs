@@ -92,7 +92,12 @@ namespace ClaudeTools
             var outputs = new JArray();
             var errors = new JArray();
             string[] lines;
-            try { lines = File.ReadAllLines(file); File.Delete(taken); File.Move(file, taken); }
+            try
+            {
+                lines = File.ReadAllLines(file);
+                if (lines.Length == 0 && new FileInfo(file).Length == 0) { _busy = false; _nextScan = Time.unscaledTime + 0.1f; yield break; }   // (still being written)
+                File.Delete(taken); File.Move(file, taken);
+            }
             catch (Exception e) { _busy = false; Logger.LogWarning("Could not read request " + file + ": " + e.Message); yield break; }
 
             foreach (string raw in lines)
@@ -129,6 +134,7 @@ namespace ClaudeTools
             catch (Exception e) { Logger.LogWarning("Could not write the request result: " + e.Message); }
             Logger.LogInfo($"Request {Path.GetFileName(file)}: {outputs.Count} result(s), {errors.Count} error(s)");
             _busy = false;
+            _nextScan = 0f;   // (the next request waiting runs straight away)
         }
 
         // ---- reading arguments ----
