@@ -31,6 +31,7 @@ namespace ClaudeTools
             RegisterUiCommands();
             RegisterObjectCommands();
             RegisterLagCommand();   // lag (Lag.cs)
+            RegisterTcDoctor();     // tcdoctor (TcDoctor.cs)
 
             Builtin("help", "help: every command, with the mod that adds it", (a, output, error) =>
             {
