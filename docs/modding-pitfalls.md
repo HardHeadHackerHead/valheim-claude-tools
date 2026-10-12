@@ -167,8 +167,16 @@ before `ConsumeResources`) before it charges, so a shortfall found in `ConsumeRe
 ## "Is this chest open?" only works on its owner's game
 
 `Container.IsInUse()` reads a flag only the container's owner sets: on other games it says "free" while someone has it open, and their copy
-of the contents can be a second old. Read the saved flag (`ZDOVars.s_inUse`), skip it if set, `ClaimOwnership()`, then reload
-(`Container.Load`) before touching items, as `CraftFromChests/ChestScanner.cs` does. AICompanion and QualityOfLife missed this.
+of the contents can be a second old. Read the saved flag (`ZDOVars.s_inUse`) and skip it if set. AICompanion and QualityOfLife missed this.
+
+## Don't take a chest from the player who owns it: ask the owner
+
+Only the owner of a chest can change it. Claiming ownership of every chest in range and paying once the claim has settled (Craft From
+Chests 1.5.1 to 1.5.3) fails when two players do it at the same time: each claim takes the chests from the other, so both players' totals
+come and go every few seconds (Multi User Chest, which moves ownership to whoever opens a chest, made it worse). Chests the game owns are
+changed directly; for any other chest send the owner an RPC to take the items out (`CFC_Take`), have it answer with what it really took,
+hold that until the craft is paid and give back what is left (`CraftFromChests/ChestScanner.cs`). The owner serves two players one after the
+other, so nothing is paid twice. Only a chest nobody owns (`ZDO.HasOwner()` false) is simply claimed.
 
 ## A Container isn't always a chest
 
@@ -249,3 +257,14 @@ command hid BuildOrders' `check` until it was renamed `modcheck`. Start every na
 `publish.ps1` builds every mod from the working folder, so uncommitted code ships (Arena 0.2.3 nearly went out with the screenshot tool).
 Stash or commit first, and check the built DLL (strings are UTF-16). Debug commands that give, move or remove follow the game's cheat rule
 (`CheatsAllowed()` in ClaudeTools) or stay out. F6 reloads every mod in `scripts`: test mods with `RESTART_REQUIRED.txt` with a full restart.
+
+## A plugin that embeds a library must not name it in its own types
+
+The dev loader (ScriptEngine, which is also how the F7 manager loads mods into `BepInEx/scripts`) calls `Assembly.GetTypes()` on a plugin
+before any of its code runs. If the DLL carries a library as a resource and loads it from an `AssemblyResolve` handler set up in `Awake`
+(Quad's Scripts embeds Jint), every type with a field, parameter or lambda that names the library fails to load at that moment, the runtime
+**remembers the failure**, and the plugin's own start-up then dies with "type initializer threw" (found 2026-10-12 with Jint; a hot reload
+cannot clear it, only a game restart). Make the plugin DLL a shell with no library types in any of its types: it hooks the resolver, loads a
+second assembly (also an embedded resource, built from its own project with `DeployToGame=false` so it is never put in `scripts`) and calls
+into it by reflection. See `mods/Scripts` (`Plugin.cs`, `Deps.cs`) and `mods/Scripts.Engine`. The same happens for a first run that lacked a
+dependency: the failed lookup (`System.Buffers` for Jint) is cached for the session, so add every dependency before the first test.
