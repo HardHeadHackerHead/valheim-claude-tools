@@ -24,7 +24,10 @@ namespace ClaudeTools
     {
         private const string LagUsage = "lag [seconds=20] [spike=50] [game=on|off] [top=20]: time every mod's Update methods, coroutines and " +
             "patches (and the game's own Updates) for that long, then report the slow frames (over spike ms): what ran in them, memory " +
-            "cleanups, log lines, how often they come; plus mods whose old hot-reload copy still runs. Patching takes a few seconds first";
+            "cleanups, log lines, how often they come; plus mods whose old hot-reload copy still runs. Patching takes a few seconds first. " +
+            "mod=<Name>[,Name] also times every method of those mods (to see which part of an Update is slow: times nest, so an Update includes " +
+            "what it calls; patching a big mod takes minutes and the timers make busy methods look slower than they are); methods=Type.Method[,...] " +
+            "times those game methods too (ZNetScene.CreateObjects)";
 
         private void RegisterLagCommand() => Builtin("lag", LagUsage, (a, output, error) => LagCommand(a, output, error));
 
@@ -82,6 +85,26 @@ namespace ClaudeTools
                         Add(p.PatchMethod, mod, $"{p.PatchMethod.DeclaringType.Name}.{p.PatchMethod.Name} (patch on {patched.DeclaringType?.Name}.{patched.Name})");
             }
             if (game) AddTypes(typeof(Player).Assembly, "game");
+            // a closer look: every method of the mods named (nested: an Update's time includes what it calls), and game methods by name
+            var deep = new HashSet<string>((o.TryGetValue("mod", out string dm) ? dm : "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
+            foreach (var m in mods.Where(x => deep.Contains(x.Value)))
+                foreach (Type t in SafeTypes(m.Key))
+                {
+                    if (t.ContainsGenericParameters) continue;
+                    foreach (MethodInfo mi in t.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                        if (!mi.Name.StartsWith("<") || t.Name.StartsWith("<")) Add(mi, m.Value, $"{(t.Name.StartsWith("<") ? (t.DeclaringType?.Name + "." + IteratorName(t.Name)) : t.Name)}.{mi.Name}");
+                }
+            if (o.TryGetValue("methods", out string named))
+                foreach (string n in named.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    int dot = n.LastIndexOf('.');
+                    Type t = dot > 0 ? AccessTools.TypeByName(n.Substring(0, dot)) : null;
+                    if (t == null) { error($"methods: no type {n}"); continue; }
+                    var found = t.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                        .Where(x => x.Name == n.Substring(dot + 1)).ToList();
+                    if (found.Count == 0) error($"methods: no method {n}");
+                    foreach (MethodInfo mi in found) Add(mi, "game", $"{t.Name}.{mi.Name}");
+                }
 
             // ---- put the timers on, a few each frame (patching is slow: all at once would freeze the game) ----
             _lagHarmony = new Harmony(Guid + ".lag");

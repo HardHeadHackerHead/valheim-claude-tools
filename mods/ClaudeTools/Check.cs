@@ -124,6 +124,9 @@ namespace ClaudeTools
                                 "Console.instance.IsCheatsEnabled(); or leave test commands out of the release build.");
                     }
 
+                    Dictionary<MethodDefinition, string> perFrame = PerFrame(asm.MainModule, patches);
+                    var searchSeen = new HashSet<string>();
+
                     foreach (TypeDefinition type in asm.MainModule.Types.SelectMany(All))
                     foreach (MethodDefinition m in type.Methods.Where(x => x.HasBody))
                     {
@@ -191,10 +194,24 @@ namespace ClaudeTools
                                         "Shader.Find returns null for shaders the game doesn't include (and on a dedicated server nothing is drawn): new Material(null) throws, " +
                                         "and if that happens while registering a piece, the piece isn't registered and the host deletes the placed ones.",
                                         "Take materials from the game's own prefabs, and fall back safely (try/catch around the visual part of registering).");
-                                if ((name == "FindObjectsOfTypeAll" || name == "FindObjectsOfType") && (m.Name == "Update" || m.Name == "LateUpdate" || m.Name == "FixedUpdate" || m.Name == "OnGUI"))
-                                    Add("warning", "find-every-frame", where, $"It calls {called.DeclaringType.Name}.{name} in {m.Name}.",
-                                        "These walk every loaded object (about 10 ms a call): every frame, or many mods every few seconds, and the game stutters.",
-                                        "Look things up once and keep them, or use the game's own lists (Player.GetAllPlayers, Character.GetAllCharacters, Chainloader.PluginInfos).");
+                                // scene searches and searches of the whole world, in code that runs every frame or on a timer from Update
+                                // (followed through the mod's own methods: a helper called from Update every 2 s is a hitch every 2 s)
+                                if (perFrame.TryGetValue(m, out string via) && owner.StartsWith("UnityEngine.") && SceneSearches.Contains(name)
+                                    && !OnceGuarded(code, i) && searchSeen.Add("find|" + where))
+                                    Add(Steps(via) <= 2 ? "warning" : "note", "find-every-frame", where,
+                                        $"It calls {called.DeclaringType.Name}.{name} in {(via == null ? m.Name : "code reached from " + via)}.",
+                                        "These walk every loaded object of the kind (about 10 ms a call in a big base). Every frame, or on a timer every few " +
+                                        "seconds, it is a hitch players feel: a check every 2 s with two of them cost a mod 20-25 ms each time. (Fine once at load.)",
+                                        "Keep your own list (BepInEx/claude/templates/Registry.cs: Live<T>, added in Awake, gone in OnDestroy, or a postfix on the game's " +
+                                        "Awake), or use the game's own lists (Player.GetAllPlayers, Character.GetAllCharacters, Chainloader.PluginInfos). Measure with lag 20.");
+                                if (perFrame.TryGetValue(m, out via) && called.DeclaringType.Name == "ZDOMan" && name.StartsWith("GetAllZDOsWithPrefab")
+                                    && !OnceGuarded(code, i) && searchSeen.Add("zdo|" + where))
+                                    Add((name.EndsWith("Iterative") && !LoopsOnResult(code, i)) || Steps(via) > 2 ? "note" : "warning", "world-zdo-scan", where,
+                                        $"It searches every saved object in the world (ZDOMan.{name}{(LoopsOnResult(code, i) ? ", called again until it is done, in one frame" : "")}) in {(via == null ? m.Name : "code reached from " + via)}.",
+                                        "That walks every sector of the world (hundreds of thousands of objects): in one frame on a timer it is a hitch (a ship search " +
+                                        "once a second cost 40 ms), and a sliced one started again the moment it ends costs a millisecond every frame for ever.",
+                                        "Keep the list up to date instead (your own objects' Awake and OnDestroy). If you must search, make one iterative call a frame, " +
+                                        "rest a few seconds between passes, and check each ZDO again before using it (removed ones are reused): templates/Registry.cs, Sliced.");
                                 if (name == "Bind" && owner == "BepInEx.Configuration.ConfigFile" && called is GenericInstanceMethod g && g.GenericArguments[0].Name == "KeyCode")
                                     KeyDefault(code, i, where, "a key setting", keyFindings);
                                 if (ins.OpCode == OpCodes.Newobj && owner == "BepInEx.Configuration.KeyboardShortcut")
@@ -379,6 +396,88 @@ namespace ClaudeTools
         }
 
         private static IEnumerable<TypeDefinition> All(TypeDefinition t) => new[] { t }.Concat(t.NestedTypes.SelectMany(All));
+
+        /// <summary>The call's answer jumps back to before it (for (...; !Search(...); ) {}): the iterative search is run to the end in one frame.</summary>
+        private static bool LoopsOnResult(IList<Instruction> code, int at)
+        {
+            for (int j = at + 1; j < Math.Min(code.Count, at + 3); j++)
+                if (code[j].OpCode.FlowControl == FlowControl.Cond_Branch && code[j].Operand is Instruction to && to.Offset < code[at].Offset) return true;
+            return false;
+        }
+
+        /// <summary>How many calls from the per-frame method (0: in it). Close by is the timer pattern; deep down it is more often a key or a command.</summary>
+        private static int Steps(string via) => via == null ? 0 : (via.Length - via.Replace(" -> ", "").Length) / 4;
+
+        /// <summary>
+        /// The call sits behind a once-only guard: a field read and branched on before it, and set in the same method (if (_found) return
+        /// _shader; _found = true; ... a search). Such a lookup runs once, not every frame.
+        /// </summary>
+        private static bool OnceGuarded(IList<Instruction> code, int at)
+        {
+            var stored = new HashSet<string>(code.Where(x => (x.OpCode == OpCodes.Stfld || x.OpCode == OpCodes.Stsfld) && x.Operand is FieldReference)
+                .Select(x => ((FieldReference)x.Operand).FullName));
+            for (int i = 0; i < at; i++)
+            {
+                if (!((code[i].OpCode == OpCodes.Ldfld || code[i].OpCode == OpCodes.Ldsfld) && code[i].Operand is FieldReference f && stored.Contains(f.FullName))) continue;
+                // a flag or a kept object (null or not), never a number: "if (Time.time < _next) return; _next = ..." is a timer, not a once
+                string t = f.FieldType.FullName;
+                if (t == "System.Single" || t == "System.Double" || t == "System.Int32" || t == "System.Int64" || t == "System.UInt32") continue;
+                for (int j = i + 1; j < Math.Min(at, i + 4); j++)
+                    if (code[j].OpCode.FlowControl == FlowControl.Cond_Branch) return true;
+            }
+            return false;
+        }
+
+        private static readonly HashSet<string> SceneSearches = new HashSet<string>
+        {
+            "FindObjectsOfTypeAll", "FindObjectsOfType", "FindObjectsByType", "FindObjectOfType", "FindFirstObjectByType", "FindAnyObjectByType",
+        };
+
+        // the game's methods that run every frame (or physics step) for each object: a patch on one runs as often
+        private static readonly string[] PerFrameTargets = { ".Update", ".LateUpdate", ".FixedUpdate", ".CustomUpdate", ".CustomFixedUpdate", ".CustomLateUpdate", ".UpdateAI", ".OnGUI" };
+
+        /// <summary>
+        /// The mod's methods that run every frame or from code that does (on a timer, say): its Update, LateUpdate, FixedUpdate and OnGUI, its
+        /// patches on the game's per-frame methods, and everything of its own they call (lambdas and coroutines too), a few calls deep. The
+        /// value is the way there ("Plugin.Update -> Landmarks.Tick"), null for the per-frame method itself.
+        /// </summary>
+        private static Dictionary<MethodDefinition, string> PerFrame(ModuleDefinition module, List<JObject> patches)
+        {
+            var found = new Dictionary<MethodDefinition, string>();
+            var queue = new Queue<KeyValuePair<MethodDefinition, int>>();
+            var hotPatches = new HashSet<string>(patches.Where(p => PerFrameTargets.Any(t => ((string)p["target"] ?? "").EndsWith(t))).Select(p => (string)p["method"]));
+            foreach (TypeDefinition type in module.Types.SelectMany(All))
+            foreach (MethodDefinition m in type.Methods.Where(x => x.HasBody))
+                if (((m.Name == "Update" || m.Name == "LateUpdate" || m.Name == "FixedUpdate" || m.Name == "OnGUI") && m.Parameters.Count == 0)
+                    || hotPatches.Contains(Scan.Name(type) + "." + m.Name))
+                    if (!found.ContainsKey(m)) { found[m] = null; queue.Enqueue(new KeyValuePair<MethodDefinition, int>(m, 0)); }
+            string Short(MethodDefinition m) => Scan.Name(m.DeclaringType) + "." + m.Name;
+            while (queue.Count > 0)
+            {
+                var at = queue.Dequeue();
+                if (at.Value >= 6) continue;
+                string path = found[at.Key] ?? Short(at.Key);
+                foreach (Instruction ins in at.Key.Body.Instructions)
+                {
+                    if (!(ins.Operand is MethodReference r)) continue;
+                    MethodDefinition d;
+                    try { d = r.Resolve(); } catch (Exception) { continue; }
+                    if (d == null || d.Module != module) continue;   // (only the mod's own code)
+                    var next = new List<MethodDefinition>();
+                    if (d.HasBody) next.Add(d);
+                    // a coroutine's or lambda's state made here: its MoveNext runs from here too
+                    if (ins.OpCode == OpCodes.Newobj) next.AddRange(d.DeclaringType.Methods.Where(x => x.HasBody && x.Name == "MoveNext"));
+                    foreach (MethodDefinition n in next)
+                    {
+                        if (found.ContainsKey(n)) continue;
+                        string step = n.Name == "MoveNext" || n.Name.StartsWith("<") ? Scan.Name(n.DeclaringType) : Short(n);
+                        found[n] = path + " -> " + step;
+                        queue.Enqueue(new KeyValuePair<MethodDefinition, int>(n, at.Value + 1));
+                    }
+                }
+            }
+            return found;
+        }
 
         /// <summary>The type is a template's class (by its name), or nested in it (its lambdas).</summary>
         private static bool InTemplate(TypeDefinition t, string name)

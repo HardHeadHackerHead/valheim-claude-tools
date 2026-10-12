@@ -19,7 +19,7 @@ profile's `BepInEx` folder with r2modman or Thunderstore Mod Manager (Settings â
 | `modkit/` | **modkit**: the mod-maker commands on the command line, without the game (see "For mod makers" below). |
 | `.claude/skills/` | Skills for making mods: starting one, the game's code, other mods, looking native, pitfalls, releasing (and on Thunderstore), fixing errors. |
 | `modelkit/` | Design, preview and check 3D models offline, and draw the game's real pieces (Python; see its README). |
-| `templates/` | Code to copy into a mod: server-decided settings (and a check that the server has the mod), costs a server owner can change, items and recipes, custom skills, status effects, build-menu pictures, snap points, taking from chests safely in multiplayer, windows in the game's own look, pieces that reload while you play, words in the player's language; and `project/`, a whole mod project to start from (see its README). |
+| `templates/` | Code to copy into a mod: server-decided settings (and a check that the server has the mod), costs a server owner can change, items and recipes, custom skills, status effects, build-menu pictures, snap points, taking from chests safely in multiplayer, windows in the game's own look, pieces that reload while you play, words in the player's language, your own lists instead of scene searches and big jobs a slice per frame; and `project/`, a whole mod project to start from (see its README). |
 
 ## Before you start
 
@@ -101,7 +101,7 @@ for the newest; use `_` for spaces). Positions in a place are metres: x right, y
 | `support [radius=20] [place=look] [filter]` | Built pieces near a place with the support the game gives them now, their material's minimum and maximum, and health: weakest first. |
 | `comfort [prefab...]` | With prefabs: the comfort level they would give together (under a roof, within 10 m), each piece's comfort and group, which count. Without: the player's comfort now and the pieces giving it. |
 | `errors` | The new errors and exceptions in the log since you last asked, with their stack traces. Run it after every rebuild. |
-| `lag [seconds=20] [spike=50] [game=on\|off] [top=20]` | What makes the game stutter: times every mod's Update/LateUpdate/FixedUpdate/OnGUI, coroutines and Harmony patches (and the game's own Updates) for that long, then reports the slow frames (over `spike` ms) with the methods that ran in them by mod, memory cleanups (`gc`), log lines and how often they come (`spikeEverySeconds`); plus `worstFrame` and `mostTime` per method, and mods whose old hot-reload copy still runs. Patching takes a few seconds first (the player feels it); all of it comes off at the end. |
+| `lag [seconds=20] [spike=50] [game=on\|off] [top=20]` | What makes the game stutter: times every mod's Update/LateUpdate/FixedUpdate/OnGUI, coroutines and Harmony patches (and the game's own Updates) for that long, then reports the slow frames (over `spike` ms) with the methods that ran in them by mod, memory cleanups (`gc`), log lines and how often they come (`spikeEverySeconds`); plus `worstFrame` and `mostTime` per method, and mods whose old hot-reload copy still runs. Patching takes a few seconds first (the player feels it); all of it comes off at the end. For a closer look, `mod=<Name>[,Name]` times every method of those mods (which part of an Update is slow; times nest) and `methods=Type.Method[,...]` adds game methods (`ZNetScene.CreateObjects`); a big mod takes minutes to patch (Jarldom, 4000 methods: 3 minutes of stutter) and the timers make methods called thousands of times look slower, so compare with a plain run. |
 | `logtrace <warning\|log\|error> <on\|off>` | Add the calling code (a stack trace) to the game's warnings (or plain log lines, or errors) in the log, to find what keeps logging one; switch it off again when done (traces make the log much longer). |
 | `raven [seen [munin\|hugin\|all] \| seenlist \| unseen <key...> \| dismiss]` | What the ravens (Hugin and Munin) have to say to this character: the current message, the ones waiting, the fixed ones within 100 m, and whether each was seen. `seen` marks them read, `seenlist` / `unseen` read and change the character's seen list, `dismiss` sends the ravens away and empties the waiting queue (the game keeps it across worlds and characters: run it after tests that set boss keys). |
 | `waitfor <mod> [version] [seconds=30]` | Wait until a mod (that version) is loaded: after a rebuild, before looking at it. It proves a reload only if the version was raised. |
@@ -239,7 +239,7 @@ BaseUnityPlugin found = Chainloader.PluginInfos.TryGetValue("com.quad.claudetool
 dictionary lookup, and hot reload keeps it current (Claude Tools' dev loader and ScriptEngine add their plugins to `Chainloader.PluginInfos` and update
 `Instance` on every reload). Don't search with `Resources.FindObjectsOfTypeAll<BaseUnityPlugin>()`: it walks every loaded object,
 textures and meshes included, about 10 ms a call. Mods that check every few seconds all start at the same moment, so their checks land
-in the same frame and the game stutters.
+in the same frame and the game stutters. Keep your own lists instead (`templates/Registry.cs`), and measure with `lag 20`.
 
 The methods:
 

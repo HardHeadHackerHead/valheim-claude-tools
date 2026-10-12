@@ -216,6 +216,28 @@ untyped part at full strength. Quad's Dungeons made its bosses tougher this way,
 take 8% of a boss's health took 48%. Scale a whole hit with `hit.m_damage.Modify(x)` (or scale `m_damage.m_damage` as well), and test
 with a hit that carries untyped damage.
 
+## Big jobs on a timer stutter
+
+A job that runs every few seconds and does all its work in one frame is a hitch players feel, however rare it looks in the code; mods
+that start together check on the same second and land in the same frame. Measured with Claude Tools' `lag` in October 2026:
+BuildOrders re-read a finished 566-piece plan from its file and searched for every piece every 5 s (130-300 ms each time);
+QualityOfLife's ship pins searched every saved object in the world once per kind of ship every second (40 ms); a mod searched the scene
+for its beacons every 2 s (20-25 ms); a colony mod filtered every piece of the base for each question its 8-second scan asked (45-65 ms).
+So:
+- **Keep your own list** instead of searching the scene (`FindObjectsByType`, `FindObjectsOfType`, `Resources.FindObjectsOfTypeAll` walk
+  every loaded object of the kind, ~10 ms in a big base): your objects add themselves in `Awake` and leave in `OnDestroy`; the game's
+  components through a postfix on their `Awake` (`templates/Registry.cs`, `Live<T>`). One search when the mod loads is fine.
+- **Read once per pass**: a scan that asks many questions (is this in stock, which station makes it, what stands here) gathers the
+  pieces and chest contents once and answers from that, and keeps what it read from a file until the file changes.
+- **Stop at the first answer** when the question is "is there any" (`AnyBuilt`, not `BuiltPieces(...).Count > 0`).
+- **A slice per frame** for what must be big: a millisecond of work each frame, then rest a few seconds before the next pass
+  (`templates/Registry.cs`, `Sliced`). The world's iterative search (`ZDOMan.GetAllZDOsWithPrefabIterative`) is one call a frame, never
+  a loop until it is done; and a sliced search started again the moment it ends still costs every frame for ever.
+- **Check again what you kept from an earlier frame**: the game reuses a removed thing's ZDO for a new object, so test `IsValid()` and
+  `GetPrefab()` before using one found a few frames ago.
+- **Measure**: `lag 20` where the mod is busiest; `lag 30 mod=YourMod` shows which of its methods take the time. `modcheck` warns about
+  scene and world searches it can reach from `Update` (`find-every-frame`, `world-zdo-scan`).
+
 ## Name everything after your mod
 
 Prefabs, RPCs, ZDO and `m_customData` keys, `$` keys, commands and the Harmony id share one space with every other mod. ClaudeTools' `check`

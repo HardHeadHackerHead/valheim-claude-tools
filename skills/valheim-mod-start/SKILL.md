@@ -311,7 +311,9 @@ mod's name. (A real case: two of our mods both added a `check` command, and one 
 too: "war stone" turned out to be `BobWarstone`, so `prefabs` was needed to find it.
 
 **Performance**: use the game's own lists (`Player.GetAllPlayers()`, `Character.GetAllCharacters()`), keep lookups in dictionaries by
-prefab name, and never search the scene (`FindObjectsOfType`) every frame.
+prefab name, and never search the scene (`FindObjectsByType`, `FindObjectsOfType`) every frame or on a timer: keep your own list
+(`BepInEx/claude/templates/Registry.cs`, `Live<T>`). A big job on a timer goes a slice per frame (`Sliced`), not all in one frame
+(**valheim-pitfalls**, "Big jobs on a timer stutter"). Check with `lag 20` in the game.
 
 **Chests**: a mod that takes from or puts into chests the player didn't open (crafting from chests, feeding, sorting) copies
 `BepInEx/claude/templates/ContainerAccess.cs`: only built chests (not graves, carts or a creature's bag), not one someone has open, ward

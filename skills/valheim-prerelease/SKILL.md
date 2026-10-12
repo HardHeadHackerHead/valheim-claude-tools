@@ -35,7 +35,8 @@ It reads the DLL and lists **problems**, **warnings** and **notes**, each with w
 | unpatch-all | `UnpatchAll()` with no id: removes every mod's patches when this one unloads. |
 | watcher-not-disposed | A file watcher left running after a hot reload. |
 | game-key | A default key the game already uses (both actions happen). |
-| find-every-frame | `FindObjectsOfType` in Update: stutters. |
+| find-every-frame | A scene search (`FindObjectsByType`, `FindObjectsOfType`, `Resources.FindObjectsOfTypeAll`) in Update or in code Update reaches (a timer): stutters. Notes are deeper down, often a key or a command: check how often it runs. |
+| world-zdo-scan | A search of every saved object in the world reachable from Update: a warning when it runs to the end in one frame, a note for a sliced one (check it rests between passes). |
 | shader-find | `Shader.Find` can return null (and a throw while registering loses the piece). |
 | same-job | Popular mods do the same job through other methods: read how, and detect them. |
 | pays-twice | A prefix that skips the game's method and pays, deposits or gives itself, without reading `__runOriginal`: next to another mod doing the same, it's done twice. |
@@ -66,6 +67,13 @@ For anything that moves items (crafting, building, paying, rewards, deaths, ches
 `chests 10` before, do it once, the same after, and compare with what the recipe or rule says. Do it at least for: crafting from the bag
 only, from chests only, and from both; a death and respawn with the mod's items on; quitting in the middle. A difference of one item is
 a bug (paid half, paid twice, an idol counted, an item given before payment).
+
+## 3c. Measure what it costs
+
+Stand where the mod is busiest (a big base, its stations or pieces near, a few players) and run `lag 20` (Claude Tools). Its slow
+frames list what ran in them by mod: your mod should not be in them. A method with a big `worstFrameMs` and a small `msPerSecond` is a
+job on a timer: make it cheaper (pitfall "Big jobs on a timer stutter"). `lag 30 mod=YourMod` times each of its methods (a big mod takes
+minutes to patch, and busy methods look slower while timed). Run it again after the fix and compare `frameMs` and `spikes`.
 
 ## 4. Multiplayer and dedicated servers
 

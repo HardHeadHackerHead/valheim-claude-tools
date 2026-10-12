@@ -227,6 +227,22 @@ that isn't time (how drunk, how far burned) with `StatusEffects.ICarry`.
 `HitData.ApplyModifier(x)` scales every damage type but untyped (`m_damage.m_damage`): Quad's Dungeons' untyped shield-break blow took 48%
 of a boss's health instead of 8%. Scale a whole hit with `hit.m_damage.Modify(x)`, or scale `m_damage.m_damage` too.
 
+## Big jobs on a timer stutter
+
+Work done every few seconds all in one frame is a hitch players feel (mods on the same timer land in the same frame). Real ones, measured
+with `lag`: a plan re-read from its file with every piece searched for every 5 s (130-300 ms), a search of the world's saved objects for
+ships every second (40 ms), a scene search for beacons every 2 s (20-25 ms), a colony scan filtering every piece for each question
+(45-65 ms every 8 s). So:
+- **Your own list, not a scene search**: `FindObjectsByType` / `FindObjectsOfType` / `Resources.FindObjectsOfTypeAll` walk every loaded
+  object of the kind (~10 ms in a big base). Objects add themselves in `Awake`, leave in `OnDestroy`; the game's through a postfix on
+  their `Awake` (`templates/Registry.cs`, `Live<T>`). Once at load is fine.
+- **Read once per pass** (the pieces, the chests and what is in them, a file until it changes) and answer every question from that;
+  **stop at the first answer** for "is there any".
+- **A slice per frame** for what must be big, resting a few seconds between passes (`templates/Registry.cs`, `Sliced`): the world's
+  iterative search is one call a frame, never a loop until done. Check a ZDO kept from an earlier frame again (`IsValid()`,
+  `GetPrefab()`): removed ones are reused for new objects.
+- **Measure** with `lag 20` (and `lag 30 mod=YourMod`); `modcheck` flags scene and world searches reachable from `Update`.
+
 ## Name everything after your mod
 
 Prefab names, RPC names, ZDO keys, `m_customData` keys, `$` localization keys, console and Claude Tools commands, asset bundle names, the

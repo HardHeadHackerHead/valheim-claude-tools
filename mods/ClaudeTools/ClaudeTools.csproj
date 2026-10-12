@@ -34,6 +34,7 @@
     <EmbeddedResource Include="../../templates/Translations.cs" LogicalName="templates/Translations.cs" />
     <EmbeddedResource Include="../../templates/ServerSettings.cs" LogicalName="templates/ServerSettings.cs" />
     <EmbeddedResource Include="../../templates/Costs.cs" LogicalName="templates/Costs.cs" />
+    <EmbeddedResource Include="../../templates/Registry.cs" LogicalName="templates/Registry.cs" />
     <EmbeddedResource Include="../../templates/Content.cs" LogicalName="templates/Content.cs" />
     <EmbeddedResource Include="../../templates/Skill.cs" LogicalName="templates/Skill.cs" />
     <EmbeddedResource Include="../../templates/Icon.cs" LogicalName="templates/Icon.cs" />
