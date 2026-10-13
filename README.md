@@ -120,6 +120,96 @@ Updates: `/plugin marketplace update valheim-claude-tools`, or switch on auto-up
 You can type any command yourself too, in the game's console (F5; switch it on in Settings → Gameplay → "Enable console"):
 `claude modcheck MyMod`, `claude who Player.ConsumeResources`.
 
+## 📋 Every command
+
+Write them in a request file, or type `claude <command>` in the game's console. `help` lists every command, those other mods add too,
+and [the assistant's guide](mods/ClaudeTools/CLAUDE.md) has every option. **Cheats only** means only in single player, for the host, or
+with devcommands on.
+
+<details>
+<summary><b>Show all commands</b></summary>
+
+**Seeing the game**
+
+| Command | What it does |
+|---|---|
+| `status` | World, position, health, stamina, biome, day and time, weather, who is online. |
+| `shot` | A picture of what the player sees. |
+| `view` | A separate camera at any spot near a place. |
+| `orbit` | Pictures from all round a place. |
+| `top` | Straight down over a place, as a map. |
+| `survey` | Ground heights, water, biome and buildings on a grid around a spot. |
+| `inventory` | What the player carries, with each item's saved data. |
+| `chests` | The chests around: what is in them and whose. |
+| `nearby` | Creatures, players, buildings and items on the ground around. |
+| `looking` | What the crosshair is on. |
+| `objects` | Every object of a prefab in the world, loaded or not. `remove` deletes them all (cheats only). |
+| `support` | Built pieces near a place with the support the game gives them, weakest first. |
+| `comfort` | The player's comfort and what gives it, or the comfort some pieces would give together. |
+| `raven` | What Hugin and Munin have to say. `dismiss` sends them away and empties their queue. |
+
+**Helping the player**
+
+| Command | What it does |
+|---|---|
+| `say` | A message in the middle of the screen. |
+| `pin` | A labelled pin on the map. |
+| `give` | Put an item in the bag (cheats only). |
+| `fixlevels` | Give items from an older `give` this world's level, so recipes count them (cheats only). |
+| `drop`, `pickup` | Drop an item from the bag, or pick up the nearest one, as the player would. |
+| `use <item>` | Use an item from the bag, as a double-click does. |
+| `grow` | Age the plants nearby, so they grow without the wait. |
+| `chestrule` | Set Quality of Life's assignment of a chest (cheats only). |
+| `tcdoctor` | The ground's change records: find and fix ones that never attached (work that looks undone, a friend stuck loading). |
+
+**Testing a mod**
+
+| Command | What it does |
+|---|---|
+| `play`, `logout`, `quit` | From the main menu straight into a world, back to the menu, or close the game (both save first). |
+| `console` | Run one of the game's own console commands and get what it printed (cheat commands: cheats only). |
+| `clear`, `terrain level`, `terrain reset` | Make a test site: take away trees, rocks, pieces and more, flatten the ground, put it back (cheats only). |
+| `daytime` | Hold the game at a time of day, for pictures in daylight (cheats only). |
+| `shoot` | Set up a picture: `pose`, `near`, `find`, `tp`, `look`, open the inventory, map, build menu or a mod's window, hide the HUD (moving the player and pressing E: cheats only). |
+| `screen` | Test windows as a player: list what's on screen, what covers what, click, type, slide, press keys (acting: cheats only). |
+| `words`, `skills`, `playerdata`, `effects` | A key's text now, every skill's level, the character's saved data, status effects with time left. |
+| `itemdata`, `inv move`, `craft` | Read or change an item's data, move items between slots, craft or upgrade at a station (changes: cheats only). |
+| `language` | The game's language: switch to another to check translations; `dump` saves every word the game has. |
+| `wait`, `waitfor` | Pause before the next picture; wait until a mod (a version of it) is loaded. |
+| `reload`, `devmods` | Load a mod's new build without a restart, when it's safe; the mods in `BepInEx/scripts` and their reload level. |
+| `errors`, `log`, `logtrace` | New errors since last asked, the log's last lines, and stack traces on the game's warnings. |
+| `lag` | What makes the game stutter: every mod's Updates, coroutines and patches timed, slow frames reported. |
+| `mods`, `config` | The mods running; a mod's settings (`config set` changes one, with `AllowConfigChanges` on). |
+
+**Looking inside the game's things**
+
+| Command | What it does |
+|---|---|
+| `prefabs` | Every prefab name containing some text, so names are looked up, not guessed. |
+| `render` | Any piece, item or creature on its own, with its real materials and light. |
+| `inspect` | What an object is made of: its parts, sizes, colliders, components, meshes and materials. |
+| `colliders` | A piece's solid colliders as the game's support check sees them. |
+| `fields` | The values on a prefab's component (a piece's cost, an item's data), or its snap points. |
+
+**For mod makers** (these also work in [modkit](tools/ModKit/), with the game closed)
+
+| Command | What it does |
+|---|---|
+| `modcheck` | The pre-release check of a mod's DLL: the mistakes that lose players' things or break other mods. |
+| `game` | The game's real code: signatures, who calls a method, who changes a field. |
+| `gameupdate` | What a game update changed, and which mods patch it. |
+| `who` | Which mods, installed and popular, patch a game method. |
+| `clashes` | Installed mods that clash with each other or with popular mods, most likely first. |
+| `patches` | Every patch in the installed mods, by game method. |
+| `systems` | The game's systems: groups of methods that do one job. |
+| `library` | The mod library: popular mods' code to read (`get`, `drop`, `update`). |
+| `modkit package` | (modkit only) Get a mod ready for Thunderstore and check everything an upload needs. |
+
+**From other mods:** [Quad's Build Orders](https://github.com/HardHeadHackerHead/valheim-mods/tree/main/mods/BuildOrders) adds
+blueprint commands (`import`, `build`, `check`, `takedown`...), and the other mods listed under [Other mods](#-other-mods) add their own.
+
+</details>
+
 ## 🔒 What it can and can't do
 
 - **Off until you say so:** requests run only with `AllowRequests` on; changing other mods' settings needs `AllowConfigChanges` as well.

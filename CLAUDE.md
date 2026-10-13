@@ -8,8 +8,8 @@ says what each part is.
 - The mod carries the skills, templates, modkit and the Python kits inside its DLL (see `mods/ClaudeTools/ClaudeTools.csproj`) and
   writes them to `BepInEx/claude`: a change to any of them reaches players only with a new release of the mod (raise `Version` in
   `mods/ClaudeTools/Plugin.cs`, add the change at the top of `mods/ClaudeTools/CHANGELOG.txt`, run `publish.ps1`, commit `dist/`).
-- `mods/ClaudeTools/CLAUDE.md` is the assistant's in-game guide (every command): add each new command to it, and to `README.md` when
-  players or mod makers would want to know.
+- `mods/ClaudeTools/CLAUDE.md` is the assistant's in-game guide (every command): add each new command to it, and a line to
+  `README.md`'s "Every command" list (and to its features above when players or mod makers would want to know).
 - After changing `templates/project`, run `python tools/sync_project_template.py`: the mod manager repo
   (https://github.com/HardHeadHackerHead/valheim-mod-manager, `template/`) keeps the same files for people listing their mods in it.
 - Build: `dotnet build mods/ClaudeTools -c Release` (needs `VALHEIM_DIR`; it copies the DLL into `BepInEx/scripts`, which the dev loader
