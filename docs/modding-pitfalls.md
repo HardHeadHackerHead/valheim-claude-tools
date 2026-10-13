@@ -128,6 +128,14 @@ which only adds or overwrites keys (`ZDOExtraData.Add`); nothing is ever cleared
 Parkour 0.1.0 ended a move by removing the pose keys from the player's ZDO, so other players saw them frozen in their last slide or climb.
 Never remove a key others read: write an explicit "none" value (0, "", a version-tagged empty state) and treat it as nothing.
 
+## What another player holds is in their ZDO, not their VisEquipment fields
+
+`VisEquipment`'s `m_rightItem`, `m_leftItem` and the other `m_*Item` fields are only set on the game that owns the player (`SetRightItem`
+and friends). On everyone else's game they stay 0: `UpdateEquipmentVisuals` reads the ZDO (`ZDOVars.s_rightItem`, `s_leftItem`...) into
+locals. Quad's Guns 0.2.1 to 0.3.0 found other players' guns from `m_rightItem`, so no other player's shots, arm poses, dives or flame ever
+showed, and it went unnoticed until a two-player test (fixed in 0.3.1). Read another player's equipment from their ZDO, and test anything
+"other players see" with a second player.
+
 ## An attached player lets go on any input
 
 `Player.SetControls` calls `AttachStop()` whenever an attached player (a chair, a bed, a zipline, a cart) moves, attacks, blocks, jumps
