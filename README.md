@@ -6,7 +6,7 @@
 teach it the game, the game's real code instead of guesses, a pre-release check, clash reports against the 100 most popular mods,
 templates and a ready-to-build project, and an in-game mod that lets the assistant see, test and photograph your game while you play.**
 
-![version: 1.2.8](https://img.shields.io/badge/version-1.2.8-3b6e8f?style=flat-square)
+![version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FHardHeadHackerHead%2Fvalheim-claude-tools%2Fmain%2Fdist%2Fmanifest.json&query=%24.mods%5B0%5D.version&label=version&color=3b6e8f&style=flat-square)
 ![BepInEx](https://img.shields.io/badge/BepInEx-5-7a5c2e?style=flat-square)
 ![license: MIT](https://img.shields.io/badge/license-MIT-4c7a3d?style=flat-square)
 ![made with: Claude Code](https://img.shields.io/badge/made%20with-Claude%20Code-c26a3d?style=flat-square)
@@ -23,12 +23,12 @@ rule in the skills and every check in `modcheck` is a real bug that cost players
 | | What it is |
 |---|---|
 | **[skills/](skills/)** | Skills for Claude Code: **valheim-mod-start** (a new mod, the way the best mods are built), **valheim-game-code** (look it up, never guess), **valheim-compat** (other mods), **valheim-look** (windows in the game's own look), **valheim-pitfalls**, **valheim-prerelease**, **valheim-fix-errors**, **valheim-thunderstore** (releasing). |
-| **[templates/](templates/)** | Code to copy into a mod: windows in the game's own look (`GameUi.cs`), words in the player's language (`Translations.cs`), settings the server decides, with a check that the server has the mod (`ServerSettings.cs`), costs a server owner can change (`Costs.cs`), taking from chests safely in multiplayer (`ContainerAccess.cs`), build pieces and items that reload while you play (`PieceReload.cs`, `ItemReload.cs`), items, recipes, smelting, drops and trader items registered by name (`Content.cs`), custom skills that survive a session without the mod (`Skill.cs`), status effects (`StatusEffects.cs`), build-menu pictures drawn from the prefab (`Icon.cs`), snap points for pieces (`SnapPoints.cs`). |
+| **[templates/](templates/)** | Code to copy into a mod: windows in the game's own look (`GameUi.cs`), words in the player's language (`Translations.cs`), settings the server decides, with a check that the server has the mod (`ServerSettings.cs`), costs a server owner can change (`Costs.cs`), taking from chests safely in multiplayer (`ContainerAccess.cs`), build pieces and items that reload while you play (`PieceReload.cs`, `ItemReload.cs`), items, recipes, smelting, drops and trader items registered by name (`Content.cs`), custom skills that survive a session without the mod (`Skill.cs`), status effects (`StatusEffects.cs`), build-menu pictures drawn from the prefab (`Icon.cs`), snap points for pieces (`SnapPoints.cs`), your own list of a component instead of searching the scene, and big jobs a slice per frame (`Registry.cs`). |
 | **[templates/project/](templates/project/)** | A whole mod project to start from: game references, shared code, an example mod in three languages, a translation check and `publish.ps1` for the mod manager. |
 | **[mods/ClaudeTools/](mods/ClaudeTools/)** | The in-game mod: your assistant's eyes and hands in the game (below). It also carries all of the above and writes it into `BepInEx/claude`. |
-| **modkit** ([tools/ModKit](tools/ModKit/)) | The mod-maker commands as a command-line program, for when the game is closed (Windows, Linux, Mac). |
+| **[modkit](tools/ModKit/)** | The mod-maker commands as a command-line program, for when the game is closed (Windows, Linux, Mac). |
 | **[docs/](docs/)** | [getting-started.md](docs/getting-started.md) (the setup and the loop we work in) and [modding-pitfalls.md](docs/modding-pitfalls.md) (the bugs that lost players' items and buildings, and how to avoid them). |
-| **[tools/](tools/)** | `check_translations.py`; PatchMap (builds the list of what the top 100 mods patch); the Python kits for 3D models and blueprints. |
+| **[tools/](tools/)** | [modelkit](tools/modelkit/) (3D models offline, in Python) and the blueprint scripts; PatchMap (builds the list of what the top 100 mods patch); the repo's checks (`check_skills.py`, `check_translations.py`). |
 
 ## 🛠️ For mod makers
 
@@ -44,6 +44,11 @@ rule in the skills and every check in `modcheck` is a real bug that cost players
 - **Testing like a player:** `screen list`, `click`, `type`, `use` and `overlaps` test your windows; `render` draws any piece, item or
   creature with its real materials; `shoot pose` sets up a picture of a placed piece for your mod's page; `language` checks your
   translations; `inventory` and `chests` before and after measure what a mod really took or gave.
+- **Testing with nobody at the keyboard:** `play` goes from the main menu straight into a world, `console` runs the game's own console
+  commands (cheats only where cheats are allowed), `clear` and `terrain level` make a clean test site, `daytime` holds the time of day
+  for pictures, and `skills`, `effects`, `words`, `itemdata` and `craft` check what a mod changed. `logout` and `quit` save first.
+- **Stutter:** `lag 20` times every mod's Update methods, coroutines and patches for 20 seconds and reports each slow frame and what ran
+  in it (`mod=<Name>` looks inside one mod). `modcheck` warns about scene searches and whole-world searches on a timer.
 - **Releasing:** `modkit package` gets a mod ready for Thunderstore and checks everything an upload needs.
 
 ## 🎮 For players: an assistant that sees your game
@@ -54,7 +59,9 @@ rule in the skills and every check in `modcheck` is a real bug that cost players
   ground around you (Ctrl+F12); which mods you run, their settings and the log's errors.
 - **Help:** a message on your screen, a pin on your map. With [Quad's Build Orders](https://github.com/HardHeadHackerHead/valheim-mods/tree/main/mods/BuildOrders),
   the assistant designs buildings with you and places them as ghosts for you to build.
-- **Your mods' problems:** which mods clash and why, what an error in the log means.
+- **Your mods' problems:** which mods clash and why, what an error in the log means, what makes the game stutter (`lag`).
+- **A stuck world:** `tcdoctor` finds and fixes ground changes that never attached to their ground (the work looks undone, and a friend
+  joining can loop on the loading screen). `raven dismiss` sends Hugin and Munin away when they keep following you.
 
 **A picture the assistant took with its own camera, over a base**
 
@@ -145,8 +152,8 @@ In `BepInEx/config/com.quad.claudetools.cfg`, made the first time the game runs 
 
 - **ScriptEngine:** if it's installed, it loads the mods in `BepInEx/scripts`, and `reload` still reloads one at a time.
 - Mods made with Jotunn or blaxxun's managers are never reloaded while the game runs (they need a restart).
-- **Mods add commands to it:** [our Companion, Build Orders, Ledger Chest, Bird Trap, Arena, Rainbows, Skal Tavern and Ziplines](https://github.com/HardHeadHackerHead/valheim-mods)
-  do, and Quality of Life's chest assignments are read and set with `chests` and `chestrule`. Yours can too, without depending on Claude
+- **Mods add commands to it:** [our Companion, Build Orders, Dungeons, Arena, Guns, Parkour, Blockscript, Jet Skis, Four Wheelers,
+  Mountain Bikes, Ledger Chest, Bird Trap, Rainbows, Skål Tavern and Ziplines](https://github.com/HardHeadHackerHead/valheim-mods) do, and Quality of Life's chest assignments are read and set with `chests` and `chestrule`. Yours can too, without depending on Claude
   Tools: see "For mod makers: adding commands" in [the guide](mods/ClaudeTools/CLAUDE.md).
 
 ## 🏗️ Building from source
@@ -154,15 +161,17 @@ In `BepInEx/config/com.quad.claudetools.cfg`, made the first time the game runs 
 ```
 skills/                     the Claude Code skills
 templates/                  code templates, and project/ (a whole mod to start from)
-docs/                       modding pitfalls
+docs/                       getting started, modding pitfalls
 mods/
   Directory.Build.props     game paths and references
   ClaudeTools/              the mod (CLAUDE.md is the assistant's guide it writes to BepInEx/claude)
   Shared/                   compiled into the mod: AI disclosure, settings migration
-tools/
+tools/                      (its README says what each one is)
   ModKit/                   modkit, built and carried inside the mod
   PatchMap/                 makes mods/ClaudeTools/Shipped/patchmap.json.gz from the top 100 Thunderstore mods
+  Shared/                   Thunderstore.cs, used by ModKit and PatchMap
   modelkit/, blueprints/    the Python kits the mod writes to BepInEx/claude/modelkit
+  check_skills.py           every skill's header is valid (run after changing a skill)
   check_translations.py     every language has the same keys and placeholders as English
   sync_project_template.py  keeps the mod manager repo's template/ the same as templates/project
 publish.ps1                 builds and writes dist/ (the feed the mod manager reads)

@@ -14,7 +14,7 @@
     <!-- The guide for AI assistants; the mod writes it to BepInEx/claude/CLAUDE.md. -->
     <EmbeddedResource Include="CLAUDE.md" LogicalName="guide/CLAUDE.md" />
     <!-- modelkit: design, preview and check 3D models offline (the same tools BuildOrders ships for blueprints); written to BepInEx/claude/modelkit. -->
-    <EmbeddedResource Include="../../tools/modelkit/KIT.md" LogicalName="modelkit/README.md" />
+    <EmbeddedResource Include="../../tools/modelkit/README.md" LogicalName="modelkit/README.md" />
     <EmbeddedResource Include="../../tools/modelkit/modelkit.py" LogicalName="modelkit/modelkit.py" />
     <EmbeddedResource Include="../../tools/modelkit/bountyboard.py" LogicalName="modelkit/bountyboard.py" />
     <EmbeddedResource Include="../../tools/modelkit/csharp/ModelBuilder.cs" LogicalName="modelkit/ModelBuilder.cs" />

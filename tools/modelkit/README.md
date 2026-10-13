@@ -5,6 +5,9 @@ every side, and turn it into C# the mod builds in the game, dressed in the game'
 building pieces offline, so you can see what you're matching. Needs Python 3 with `pip install numpy Pillow` (and `UnityPy` for the
 game's real shapes).
 
+> In the [Claude Tools repo](https://github.com/HardHeadHackerHead/valheim-claude-tools) this kit is `tools/modelkit`, and the blueprint
+> scripts (`blueprint.py`, `preview.py`, `extract_*.py`) come from `tools/blueprints/tools`, the same ones Quad's Build Orders uses.
+
 | File | What it is |
 |---|---|
 | `modelkit.py` | A model as simple shapes (`box`, `cyl`, `sph`, `quad`, groups that move together, real triangles with `mesh`); `contact_sheet` draws it from four sides, `icon` draws its build-menu picture, `Model.to_csharp` writes it as C#. |
