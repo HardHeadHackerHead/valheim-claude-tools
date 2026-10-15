@@ -22,6 +22,8 @@ namespace YourMod
     /// KeepOnUnload is true. Keep the item prefabs plain (the game's own components, no MonoBehaviour of yours on them). Then declare it:
     ///   [assembly: System.Reflection.AssemblyMetadata("ClaudeTools.Reload", "world")]
     /// modcheck gives it world only when every item it adds to ObjectDB goes through this class and it calls Repoint.
+    /// The old item prefabs are never destroyed here: add Leftovers.cs (Own them, HandOver on unload, TakeOver after Repoint) to free
+    /// them and what you made for them; it keeps one a loaded item still points at.
     /// </summary>
     internal static class ItemReload
     {

@@ -16,6 +16,8 @@ namespace YourMod
     ///      nothing). So the new copy swaps them for its own (Reattach). Their fields start at their defaults: read what a component needs
     ///      in its Awake, not from fields set on the prefab.
     /// Pieces only. Items aren't covered: an item in a bag or chest keeps the old copy's data until the game restarts.
+    /// The old prefab (and the materials, meshes and icon you made for it) stays alive after the new copy replaces it: add Leftovers.cs
+    /// (Own what you make, HandOver on unload, TakeOver after Reattach) or every reload keeps a full set until the game quits.
     /// A template from Claude Tools (BepInEx/claude/templates): copy it into your mod and change the namespace. The copy our own mods run is
     /// mods/Shared/PieceReload.cs in https://github.com/HardHeadHackerHead/valheim-mods (Bounty Board, Ledger Chest, Recycler, Jet Skis).
     /// In your mod: Register calls ReplacePrefab and Reattach; your unload calls UnloadPiece (not your own removal); and the mod says so:

@@ -23,6 +23,7 @@ namespace YourMod
     /// and the one named for items. Call it once the prefab is built (it reads the renderers as they are then); it costs a few milliseconds.
     /// Copies are made with ZNetView.m_forceDisableInit and TerrainOp.m_forceDisableTerrainOps on, and a whole-prefab copy loses its
     /// scripts, colliders and physics before it ever wakes up, so drawing never makes a networked object or digs into the ground.
+    /// Each picture is a new texture and sprite that nothing frees: with hot reloads, Leftovers.Own(Icon.Make(prefab)) (Leftovers.cs).
     /// A template from Claude Tools (BepInEx/claude/templates): copy it into your mod and change the namespace. The copy our own mods run
     /// is mods/Shared/Icon.cs in https://github.com/HardHeadHackerHead/valheim-mods (the Bounty Board, Bird Trap, Ledger Chest, Recycler
     /// and Slot Machine draw their build-menu pictures with it).

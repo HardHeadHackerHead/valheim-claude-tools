@@ -243,6 +243,13 @@ ships every second (40 ms), a scene search for beacons every 2 s (20-25 ms), a c
   `GetPrefab()`): removed ones are reused for new objects.
 - **Measure** with `lag 20` (and `lag 30 mod=YourMod`); `modcheck` flags scene and world searches reachable from `Update`.
 
+## A hot reload keeps everything the old copy made
+
+The old copy's code stays (a few MB), and so do the prefabs, materials, meshes, icons and sounds it made: `PieceReload`/`ItemReload` keep
+the old prefabs alive on purpose, and standing pieces draw with the old materials, so nothing frees them. Jarldom grew 35 MB a reload
+(2 GB after a night, 59 copies). Use `templates/Leftovers.cs`: `Own` what you make, `HandOver()` in `OnDestroy`, `TakeOver()` once the
+new copy's own exist.
+
 ## Name everything after your mod
 
 Prefab names, RPC names, ZDO keys, `m_customData` keys, `$` localization keys, console and Claude Tools commands, asset bundle names, the
