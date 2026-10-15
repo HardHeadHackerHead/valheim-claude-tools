@@ -121,6 +121,13 @@ a piece mod often (no trip to the main menu, nothing deleted); players never not
 Add items only through `Replace`, and keep item prefabs plain (no component of yours on them). `modcheck` gives `world` to a mod that adds
 items only through `ItemReload` and calls its `Repoint`; recipes and status effects still need the main menu.
 
+**Free what the old copy made.** Both templates keep the old prefabs alive, and pieces standing in the world still draw with the old
+copy's materials and meshes, so nothing ever frees them: every reload keeps a full set of your prefabs, materials, meshes, icons and
+sounds until the game quits (35 MB a reload for a mod with 30 icons; 2 GB after a night of reloads). `templates/Leftovers.cs` fixes it:
+`Leftovers.Own(...)` everything you make (prefabs, `new Material`, `new Mesh`, `Icon.Make`), `Leftovers.HandOver()` in `OnDestroy`, and
+`Leftovers.TakeOver()` once the new copy's own exist (after `Reattach`/`Repoint`). It puts the new copy's in the old ones' place where
+they're still used and destroys the rest. Name what you make: two copies' are matched by name (and a material's shader, colour, texture).
+
 **Test in a world you can lose.** Make a test world (and character) for your mod, and back up `BepInEx/scripts` before copying in a build
 someone else made. Never try a build that saves things (pieces, chest contents, player data) on your main world first.
 

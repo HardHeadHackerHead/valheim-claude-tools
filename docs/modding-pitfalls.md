@@ -254,6 +254,17 @@ So:
 - **Measure**: `lag 20` where the mod is busiest; `lag 30 mod=YourMod` shows which of its methods take the time. `modcheck` warns about
   scene and world searches it can reach from `Update` (`find-every-frame`, `world-zdo-scan`).
 
+## A hot reload keeps everything the old copy made
+
+.NET never unloads a mod's old copy, so its code and statics stay (a few MB). That's the small part: the prefabs, materials, meshes,
+textures, icons and sounds it made stay too. `PieceReload` and `ItemReload` keep the old prefabs alive on purpose (no gap for an area
+loading meanwhile), and the pieces standing in the world draw with the old copy's materials and meshes, so the old copy can't destroy
+them on unload. Found 2026-10-15: Jarldom grew 35 MB a reload (190 materials, 66 icon textures and sprites, 21 meshes kept in a list it
+cleared but never destroyed), 2 GB after a night of reloads with 59 copies loaded, and a building kit kept 19 copies of every prefab.
+`templates/Leftovers.cs`: the old copy hands over what it made, and the new one swaps its own in where they're still used and destroys the
+rest. Only mod makers pay for this (players never hot reload), but a long session of reloads ends in a game that stutters or runs out
+of memory.
+
 ## Name everything after your mod
 
 Prefabs, RPCs, ZDO and `m_customData` keys, `$` keys, commands and the Harmony id share one space with every other mod. ClaudeTools' `check`
