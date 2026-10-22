@@ -81,7 +81,9 @@ you switch it on.
 2. Get the mod, one of two ways:
    - **With our [mod manager](https://github.com/HardHeadHackerHead/valheim-mod-manager):** press **F7** in the game, find Claude Tools
      in **Browse**, click **Install**. It shows you updates.
-   - **By hand:** download `ClaudeTools.dll` and `ClaudeTools.pdb` from [dist/](dist/) into `BepInEx/plugins` (or `BepInEx/scripts`).
+   - **By hand:** download `ClaudeTools.dll`, `ClaudeTools.Valheim.dll` and their `.pdb` files from [dist/](dist/) into `BepInEx/plugins`
+     (or `BepInEx/scripts`), all four in the same folder. `ClaudeTools.dll` is Claude Tools itself, `ClaudeTools.Valheim.dll` what it knows
+     about Valheim.
 
 It isn't on Thunderstore: it downloads other mods' code to read (the mod library) and loads the mods you are making from memory, which
 Thunderstore doesn't allow.
@@ -123,7 +125,7 @@ You can type any command yourself too, in the game's console (F5; switch it on i
 ## 📋 Every command
 
 Write them in a request file, or type `claude <command>` in the game's console. `help` lists every command, those other mods add too,
-and [the assistant's guide](mods/ClaudeTools/CLAUDE.md) has every option. **Cheats only** means only in single player, for the host, or
+and [the assistant's guide](mods/ClaudeTools.Valheim/CLAUDE.md) has every option. **Cheats only** means only in single player, for the host, or
 with devcommands on.
 
 <details>
@@ -245,7 +247,7 @@ In `BepInEx/config/com.quad.claudetools.cfg`, made the first time the game runs 
 - Mods made with Jotunn or blaxxun's managers are never reloaded while the game runs (they need a restart).
 - **Mods add commands to it:** [our Companion, Build Orders, Dungeons, Arena, Guns, Parkour, Blockscript, Jet Skis, Four Wheelers,
   Mountain Bikes, Ledger Chest, Bird Trap, Rainbows, Skål Tavern and Ziplines](https://github.com/HardHeadHackerHead/valheim-mods) do, and Quality of Life's chest assignments are read and set with `chests` and `chestrule`. Yours can too, without depending on Claude
-  Tools: see "For mod makers: adding commands" in [the guide](mods/ClaudeTools/CLAUDE.md).
+  Tools: see "For mod makers: adding commands" in [the guide](mods/ClaudeTools.Valheim/CLAUDE.md).
 
 ## 🏗️ Building from source
 
@@ -254,12 +256,16 @@ skills/                     the Claude Code skills
 templates/                  code templates, and project/ (a whole mod to start from)
 docs/                       getting started, modding pitfalls
 mods/
-  Directory.Build.props     game paths and references
-  ClaudeTools/              the mod (CLAUDE.md is the assistant's guide it writes to BepInEx/claude)
-  Shared/                   compiled into the mod: AI disclosure, settings migration
+  Directory.Build.props     game paths and references (Valheim, Mycopunk, Emberville)
+  ClaudeTools/              the mod's core, the same for every game (it uses no game's code)
+  ClaudeTools.Valheim/      what it knows about Valheim, and Valheim's commands; it carries the guide (CLAUDE.md), skills, templates
+                            and modkit, which the mod writes to BepInEx/claude
+  ClaudeTools.Mycopunk/     the same for Mycopunk (a start: its own status command)
+  ClaudeTools.Emberville/   the same for Emberville (only the game's name so far)
+  Shared/                   compiled into the mods: AI disclosure, settings migration, finding the core
 tools/                      (its README says what each one is)
-  ModKit/                   modkit, built and carried inside the mod
-  PatchMap/                 makes mods/ClaudeTools/Shipped/patchmap.json.gz from the top 100 Thunderstore mods
+  ModKit/                   modkit, built and carried inside ClaudeTools.Valheim
+  PatchMap/                 makes mods/ClaudeTools.Valheim/Shipped/patchmap.json.gz from the top 100 Thunderstore mods
   Shared/                   Thunderstore.cs, used by ModKit and PatchMap
   modelkit/, blueprints/    the Python kits the mod writes to BepInEx/claude/modelkit
   check_skills.py           every skill's header is valid (run after changing a skill)
@@ -270,8 +276,9 @@ publish.ps1                 builds and writes dist/ (the feed the mod manager re
 
 1. Install the [.NET SDK](https://dotnet.microsoft.com/download) (8 or later) and BepInEx in your game.
 2. Set `VALHEIM_DIR` to the game folder (Steam's usual places on Linux are found by themselves).
-3. `dotnet build mods/ClaudeTools -c Release` builds the mod (and modkit) and copies it into `BepInEx/scripts`; add
-   `-p:DeployToGame=false` to only build.
+3. `dotnet build mods/ClaudeTools.Valheim -c Release` builds the mod (its core, ClaudeTools.Valheim and modkit) and copies both DLLs into
+   `BepInEx/scripts`; add `-p:DeployToGame=false` to only build. For Mycopunk, `dotnet build mods/ClaudeTools.Mycopunk -c Release` (with
+   `MYCOPUNK_DIR`) builds the core against Mycopunk's Unity (`mods/ClaudeTools/bin/Release/Mycopunk/net48`) and its adapter.
 4. `pwsh -File publish.ps1` writes `dist/` for a release; commit and push it.
 5. To refresh what the top mods patch: `dotnet run --project tools/PatchMap` (downloads them into `tools/PatchMap/cache`, never
    committed).

@@ -4,10 +4,10 @@ The programs and scripts behind Claude Tools. Some of them go to players inside 
 
 | Folder or file | What it is | Players get it? |
 |---|---|---|
-| [ModKit/](ModKit/) | **modkit**: the mod-maker commands (`modcheck`, `who`, `clashes`, `game`, `library`, `package`...) on the command line, with the game closed. Windows, Linux and Mac. | Yes, in `BepInEx/claude/modkit` |
+| [ModKit/](ModKit/) | **modkit**: the mod-maker commands (`modcheck`, `who`, `clashes`, `game`, `library`, `package`...) on the command line, with the game closed (Valheim, Mycopunk or Emberville: `--game`). Windows, Linux and Mac. | Yes, in `BepInEx/claude/modkit` (Valheim's) |
 | [modelkit/](modelkit/) | Python for designing a piece's or item's 3D model offline, seeing it from every side, and turning it into C# dressed in the game's materials. | Yes, in `BepInEx/claude/modelkit` |
 | [blueprints/tools/](blueprints/tools/) | Python that reads the game's building pieces (sizes, snap points, real shapes), draws them, and designs blueprints for Quad's Build Orders. | Yes, in `BepInEx/claude/modelkit` |
-| [PatchMap/](PatchMap/) | Makes `mods/ClaudeTools/Shipped/patchmap.json.gz`: what the 100 most-downloaded Thunderstore mods patch (facts only, none of their code). | The map it makes, inside the mod |
+| [PatchMap/](PatchMap/) | Makes `mods/ClaudeTools.Valheim/Shipped/patchmap.json.gz`: what the 100 most-downloaded Thunderstore mods for Valheim patch (facts only, none of their code). | The map it makes, inside ClaudeTools.Valheim |
 | [Shared/](Shared/) | `Thunderstore.cs`: reading Thunderstore's package list, shared by ModKit and PatchMap. | |
 | `check_skills.py` | Every skill's header is valid (an unquoted `: ` in a description stops the skill from being picked up by itself). Run after changing a skill. Needs PyYAML. | |
 | `check_translations.py` | Every language has the same keys and placeholders as English. | |
