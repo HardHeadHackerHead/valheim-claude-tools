@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Claude Tools for Mycopunk: Mycopunk's adapter, beside Claude Tools' core (ClaudeTools.dll) built for Mycopunk's Unity. Both DLLs go in the
+    same folder (BepInEx/plugins/ClaudeTools, or BepInEx/scripts for hot reload); this one does nothing without the core.
+  -->
+  <PropertyGroup>
+    <AssemblyName>ClaudeTools.Mycopunk</AssemblyName>
+    <RootNamespace>ClaudeTools.Mycopunk</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- the core, built against Mycopunk's Unity (bin/Release/Mycopunk/net48/ClaudeTools.dll: ship that one beside this) -->
+    <ProjectReference Include="../ClaudeTools/ClaudeTools.csproj" Private="false" AdditionalProperties="Game=Mycopunk" />
+    <Reference Include="Unity.Netcode.Runtime"><HintPath>$(ManagedDir)/Unity.Netcode.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Compile Include="../Shared/CoreLink.cs" Link="Shared/CoreLink.cs" />
+  </ItemGroup>
+</Project>

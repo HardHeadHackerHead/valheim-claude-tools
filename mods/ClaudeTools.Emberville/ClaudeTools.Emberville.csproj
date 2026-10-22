@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Claude Tools for Emberville (the demo): a first adapter, beside Claude Tools' core (ClaudeTools.dll) built for Emberville's Unity. It
+    only names the game so far: everything else is Claude Tools' defaults for any Unity game (see EmbervilleGame.cs for what to fill in).
+  -->
+  <PropertyGroup>
+    <AssemblyName>ClaudeTools.Emberville</AssemblyName>
+    <RootNamespace>ClaudeTools.Emberville</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- the core, built against Emberville's Unity (bin/Release/Emberville/net48/ClaudeTools.dll: ship that one beside this) -->
+    <ProjectReference Include="../ClaudeTools/ClaudeTools.csproj" Private="false" AdditionalProperties="Game=Emberville" />
+    <Compile Include="../Shared/CoreLink.cs" Link="Shared/CoreLink.cs" />
+  </ItemGroup>
+</Project>

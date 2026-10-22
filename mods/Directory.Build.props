@@ -91,7 +91,7 @@
   </ItemGroup>
   <!-- Mycopunk and Emberville: Assembly-CSharp, publicized (private members usable, as the mycopunk-mods repo builds its mods) -->
   <ItemGroup Condition="'$(UsesGameCode)' != 'false' and ('$(Game)' == 'Mycopunk' or '$(Game)' == 'Emberville')">
-    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" ExcludeAssets="compile; runtime" />
     <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)/Assembly-CSharp.dll</HintPath><Private>false</Private><Publicize>true</Publicize></Reference>
     <Reference Include="netstandard"><HintPath>$(ManagedDir)/netstandard.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
