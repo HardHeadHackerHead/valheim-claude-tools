@@ -32,6 +32,7 @@ namespace ClaudeTools
             public GameObject Go;
             public Rect Screen;   // pixels, y down from the top
             public bool On;       // can be clicked now
+            public Action Click;  // the game's own way to press it (its adapter's), or null for pointer events
         }
 
         private static IEnumerator UiCommand(string[] a, Action<JObject> output, Action<string> error)
@@ -84,15 +85,19 @@ namespace ClaudeTools
                     Match m = Regex.Match(rest, @"^(.*\S)\s+(\d+)$");
                     if (m.Success) { words = m.Groups[1].Value; n = int.Parse(m.Groups[2].Value); }
                     List<UiThing> clickable = UiThings(true, false).Where(t => t.Kind != "slider").ToList();   // (a text box: clicking it puts the cursor in it)
-                    List<UiThing> exact = clickable.Where(t => string.Equals(t.Label, words, StringComparison.OrdinalIgnoreCase)).ToList();
-                    List<UiThing> found = exact.Count > 0 ? exact : clickable.Where(t => t.Label.IndexOf(words, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                    // by its words: exactly, then containing them; else by its object's name (a button showing only an icon)
+                    List<UiThing> found = clickable.Where(t => string.Equals(t.Label, words, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (found.Count == 0) found = clickable.Where(t => t.Label.IndexOf(words, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                    if (found.Count == 0) found = clickable.Where(t => string.Equals(t.Go.name, words, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (found.Count == 0) found = clickable.Where(t => t.Go.name.IndexOf(words, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
                     if (found.Count == 0) { error($"nothing on screen says \"{words}\" (screen list shows what is there)"); yield break; }
                     if (n < 1 || n > found.Count) { error($"{found.Count} say \"{words}\": pick 1 to {found.Count}"); yield break; }
                     UiThing t = found[n - 1];
                     if (!t.On) { error($"\"{t.Label}\" can't be clicked now (greyed out)"); yield break; }
                     TMP_InputField box = t.Go.GetComponent<TMP_InputField>();
                     if (box != null) { box.Select(); box.ActivateInputField(); }   // (then screen type types in it)
-                    else UiClick(t.Go);
+                    else if (t.Click != null) t.Click();
+                    else UiClick(t);
                     yield return null; yield return null;   // (mods act on a click in their next Update)
                     output(new JObject { ["clicked"] = UiJson(t), ["alsoMatched"] = found.Count > 1 ? found.Count - 1 : 0 });
                     yield break;
@@ -166,7 +171,7 @@ namespace ClaudeTools
                     }
                     // item cells: the game's own (Valheim's inventory grids and mods' copies), by the item in them
                     foreach (GameAdapter.ScreenItem item in Adapter.ScreenItems(canvas))
-                        UiAdd(list, canvas, item.Go, item.Kind, item.Label, item.On, screen);
+                        UiAdd(list, canvas, item.Go, item.Kind, item.Label, item.On, screen, item.Click);
                 }
                 if (texts)
                     foreach (TMP_Text t in canvas.GetComponentsInChildren<TMP_Text>(false))
@@ -178,7 +183,7 @@ namespace ClaudeTools
             return list;
         }
 
-        private static void UiAdd(List<UiThing> list, Canvas canvas, GameObject go, string kind, string label, bool on, Rect screen)
+        private static void UiAdd(List<UiThing> list, Canvas canvas, GameObject go, string kind, string label, bool on, Rect screen, Action click = null)
         {
             var rt = go.transform as RectTransform;
             if (rt == null) return;
@@ -191,7 +196,7 @@ namespace ClaudeTools
             // scrolled out of a list's view
             foreach (RectMask2D mask in go.GetComponentsInParent<RectMask2D>())
                 if (UiOverlap(r, UiScreenRect(mask.rectTransform)) < 1f) return;
-            list.Add(new UiThing { Kind = kind, Label = label ?? "", Window = UiWindowOf(canvas, go.transform), Go = go, Screen = r, On = on });
+            list.Add(new UiThing { Kind = kind, Label = label ?? "", Window = UiWindowOf(canvas, go.transform), Go = go, Screen = r, On = on, Click = click });
         }
 
         private static bool UiFaded(Transform t)
@@ -278,10 +283,15 @@ namespace ClaudeTools
             return f != null && f.isActiveAndEnabled ? f : null;
         }
 
-        /// <summary>A real click: pointer down, up and click, as the event system sends them (buttons and the inventory's cells both answer).</summary>
-        private static void UiClick(GameObject go)
+        /// <summary>
+        /// A real click: pointer down, up and click, as the event system sends them (buttons and the inventory's cells both answer), at the
+        /// middle of the thing (buttons that check the pointer is still over them on release).
+        /// </summary>
+        private static void UiClick(UiThing t)
         {
-            var data = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, clickCount = 1 };
+            GameObject go = t.Go;
+            var middle = new Vector2(t.Screen.center.x, UnityEngine.Screen.height - t.Screen.center.y);   // (event positions run up from the bottom)
+            var data = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, clickCount = 1, position = middle, pressPosition = middle };
             ExecuteEvents.ExecuteHierarchy(go, data, ExecuteEvents.pointerEnterHandler);
             ExecuteEvents.ExecuteHierarchy(go, data, ExecuteEvents.pointerDownHandler);
             ExecuteEvents.ExecuteHierarchy(go, data, ExecuteEvents.pointerUpHandler);

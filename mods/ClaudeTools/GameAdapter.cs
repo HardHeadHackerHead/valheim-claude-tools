@@ -138,15 +138,19 @@ namespace ClaudeTools
 
         // ---- the screen command (UiCommand.cs) ----
 
-        /// <summary>A control of the game's own that screen lists: an item cell, by the item in it.</summary>
+        /// <summary>
+        /// A control of the game's own that screen lists: an item cell by the item in it, or a button of the game's own kind. Click: how to
+        /// press it, when the event system's pointer events don't (null: they do).
+        /// </summary>
         public class ScreenItem
         {
             public GameObject Go;
             public string Kind, Label;
             public bool On = true;
+            public Action Click;
         }
 
-        /// <summary>The game's own clickable things on a canvas that aren't plain buttons (an inventory's item cells).</summary>
+        /// <summary>The game's own clickable things on a canvas that aren't plain buttons (an inventory's item cells, Mycopunk's buttons).</summary>
         public virtual IEnumerable<ScreenItem> ScreenItems(Canvas canvas) => Enumerable.Empty<ScreenItem>();
 
         /// <summary>A control screen should leave out (the game's item cells, listed once by ScreenItems).</summary>

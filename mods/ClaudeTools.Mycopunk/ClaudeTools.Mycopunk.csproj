@@ -11,6 +11,11 @@
     <!-- the core, built against Mycopunk's Unity (bin/Release/Mycopunk/net48/ClaudeTools.dll: ship that one beside this) -->
     <ProjectReference Include="../ClaudeTools/ClaudeTools.csproj" Private="false" AdditionalProperties="Game=Mycopunk" />
     <Reference Include="Unity.Netcode.Runtime"><HintPath>$(ManagedDir)/Unity.Netcode.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Unity.InputSystem"><HintPath>$(ManagedDir)/Unity.InputSystem.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="../Shared/CoreLink.cs" Link="Shared/CoreLink.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Notes about Mycopunk for the assistant: Claude Tools adds them to the end of its general guide (BepInEx/claude/CLAUDE.md). -->
+    <EmbeddedResource Include="GAME.md" LogicalName="guide/GAME.md" />
   </ItemGroup>
 </Project>

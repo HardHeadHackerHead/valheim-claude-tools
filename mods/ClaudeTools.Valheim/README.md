@@ -13,4 +13,6 @@ commands. It goes beside `ClaudeTools.dll`, in the same folder; the mod manager 
 - It carries the skills, templates, modkit and modelkit too (see `ClaudeTools.Valheim.csproj`); they are at the repo's top:
   [skills/](../../skills/), [templates/](../../templates/), [tools/](../../tools/).
 
-Its settings (`SurveyKey`, `SurveyRadius`) stay in Claude Tools' own `com.quad.claudetools.cfg`.
+Its settings (`SurveyKey`, `SurveyRadius`, `AllowAdmin`, Clawd's `Summoned` and `Chatty`) stay in Claude Tools' own
+`com.quad.claudetools.cfg`. `Admin.cs` is the server admin commands, `Clawd.cs` Clawd, whose hooks into requests and pictures go through
+`ValheimGame` (`OnCommand`, `OnRequestDone`, `HideForPictures`); reloads are said in the game's chat (`ValheimGame.Announce`).

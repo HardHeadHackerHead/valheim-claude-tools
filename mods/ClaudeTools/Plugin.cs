@@ -137,7 +137,8 @@ namespace ClaudeTools
 
         /// <summary>
         /// Write CLAUDE.md (the assistants' guide) and the skills into BepInEx/claude, refreshed whenever they change: this DLL's, and the game
-        /// adapter's (its guide, skills, templates and tools take the place of ours where they have the same name).
+        /// adapter's (its guide, skills, templates and tools take the place of ours where they have the same name; an adapter with only notes
+        /// about its game, guide/GAME.md, has them added to the end of the general guide).
         /// </summary>
         internal void WriteGuide()
         {
@@ -167,6 +168,7 @@ namespace ClaudeTools
                             var data = new MemoryStream();
                             s.CopyTo(data);
                             byte[] bytes = data.ToArray();
+                            if (rel == "CLAUDE.md" && file.Value.Key == typeof(Plugin).Assembly) bytes = WithGameNotes(bytes);
                             string path = Path.Combine(Folder, rel.Replace('/', Path.DirectorySeparatorChar));
                             Directory.CreateDirectory(Path.GetDirectoryName(path));
                             if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes);
@@ -176,6 +178,21 @@ namespace ClaudeTools
                 }
             }
             catch (Exception e) { Logger.LogWarning("Could not write the guide: " + e.Message); }
+        }
+
+        /// <summary>The general guide, with the game adapter's notes (guide/GAME.md) at its end when it has some.</summary>
+        private static byte[] WithGameNotes(byte[] guide)
+        {
+            Assembly game = _adapter?.GetType().Assembly;
+            using (Stream notes = game?.GetManifestResourceStream("guide/GAME.md"))
+            {
+                if (notes == null) return guide;
+                var all = new MemoryStream();
+                all.Write(guide, 0, guide.Length);
+                all.WriteByte((byte)'\n');
+                notes.CopyTo(all);
+                return all.ToArray();
+            }
         }
     }
 }

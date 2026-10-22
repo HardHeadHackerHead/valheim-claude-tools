@@ -4,7 +4,10 @@
 
 - In a world while `PlayerLook.Instance` is there; the player is `Pigeon.Movement.Player.LocalPlayer`, the camera `PlayerLook.LocalCamera`.
 - Typing: a text box, the text chat, or the menu open. Cheats (screen click, type, use, key): only for the host, or playing alone.
-- Its commands: `status` (level, player, position, health, host, who is in it). Everything else is Claude Tools' own: `shot`, `view`,
+- Its commands: `status` (level, player, position, health, host, who is in it) and `ui` (the same as `screen`, which also lists and
+  presses the game's own buttons, `Pigeon.UI.Button`, by their text or name, and presses keys through the new Input System:
+  `ui click play`, `ui key F8`; `Screen.cs`). `ui` and `shot` work at the main menu too. `GAME.md` is added to the end of the general
+  guide in `BepInEx/claude/CLAUDE.md`. Everything else is Claude Tools' own: `shot`, `view`,
   `orbit`, `top`, `render`, `inspect`, `screen`, `log`, `errors`, `lag`, `reload`, `game`, `modcheck`, `who`, `clashes`, `library`
   (Thunderstore's `mycopunk` community)...
 - Notices (F12's "Screenshot saved") go to the log only. Claude Tools reads keys through the new Input System by itself.

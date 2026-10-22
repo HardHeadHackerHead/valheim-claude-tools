@@ -8,7 +8,7 @@ namespace ClaudeTools.Mycopunk
     /// What Claude Tools needs to know about Mycopunk (GameAdapter.cs there). Mycopunk reads only Unity's new Input System, which Claude
     /// Tools' Keys handles by itself; it is a Netcode for GameObjects co-op game, so the cheat rule is "this game hosts" (or plays alone).
     /// </summary>
-    internal sealed class MycopunkGame : GameAdapter
+    internal sealed partial class MycopunkGame : GameAdapter
     {
         public override string Game => "Mycopunk";
 
