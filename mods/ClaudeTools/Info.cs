@@ -32,6 +32,8 @@ namespace ClaudeTools
             RegisterObjectCommands();
             RegisterLagCommand();   // lag (Lag.cs)
             RegisterTcDoctor();     // tcdoctor (TcDoctor.cs)
+            RegisterAdmin();        // players, bring, goto, tp, heal, effect, tell, announce, worldtime, save, kick, ban (Admin.cs)
+            RegisterClawd();        // clawd (Clawd.cs)
 
             Builtin("help", "help: every command, with the mod that adds it", (a, output, error) =>
             {
@@ -65,12 +67,30 @@ namespace ClaudeTools
                     ["day"] = env != null ? env.GetDay() : 0,
                     ["time"] = $"{minutes / 60:00}:{minutes % 60:00}",
                     ["weather"] = env != null && env.GetCurrentEnvironment() != null ? env.GetCurrentEnvironment().m_name : "",
-                    ["online"] = new JArray(Player.GetAllPlayers().Where(x => x != null).Select(x => new JObject { ["name"] = x.GetPlayerName(), ["distance"] = Math.Round(Vector3.Distance(x.transform.position, p.transform.position), 1) })),
+                    // the server's list: everyone connected (Player.GetAllPlayers only has those loaded near you)
+                    ["online"] = new JArray(OnlinePlayers().Select(x => new JObject { ["name"] = x.Name, ["distance"] = x.Position is Vector3 at ? Math.Round(Vector3.Distance(at, p.transform.position), 1) : (double?)null })),
                 });
                 return null;
             });
 
-            Builtin("inventory", "inventory: what the player carries (name, stack, quality, durability, equipped) and totals", (a, output, error) =>
+            Builtin("land", "land <x> <z>: the land at a spot anywhere in the world, loaded or not (biome, the world generator's ground height, under water or not): " +
+                "check where a teleport would land (a Mountain is freezing without frost resistance) before sending the player there", (a, output, error) =>
+            {
+                if (WorldGenerator.instance == null || a.Length < 3) { error("land <x> <z>"); return null; }
+                float x = F(a, 1, 0f), z = F(a, 2, 0f);
+                float ground = WorldGenerator.instance.GetHeight(x, z);
+                float water = ZoneSystem.instance != null ? ZoneSystem.instance.m_waterLevel : 30f;
+                Heightmap.Biome biome = WorldGenerator.instance.GetBiome(new Vector3(x, ground, z));
+                output(new JObject
+                {
+                    ["at"] = new JArray(x, z), ["biome"] = biome.ToString(), ["generatorGround"] = Math.Round(ground, 1),
+                    ["underwater"] = ground < water, ["cold"] = biome == Heightmap.Biome.Mountain || biome == Heightmap.Biome.DeepNorth,
+                    ["note"] = "generator height: terrain work and buildings there are not counted",
+                });
+                return null;
+            });
+
+            Builtin("inventory","inventory: what the player carries (name, stack, quality, durability, equipped) and totals", (a, output, error) =>
             {
                 Player p = Player.m_localPlayer;
                 Inventory inv = p.GetInventory();

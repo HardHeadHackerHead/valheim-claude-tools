@@ -154,6 +154,7 @@ with devcommands on.
 |---|---|
 | `say` | A message in the middle of the screen. |
 | `pin` | A labelled pin on the map. |
+| `clawd` | Clawd, a little orange Claude who follows you and says what Claude is doing in a speech bubble (`claude clawd` in the console; `clawd bye` sends him away). |
 | `give` | Put an item in the bag (cheats only). |
 | `fixlevels` | Give items from an older `give` this world's level, so recipes count them (cheats only). |
 | `drop`, `pickup` | Drop an item from the bag, or pick up the nearest one, as the player would. |

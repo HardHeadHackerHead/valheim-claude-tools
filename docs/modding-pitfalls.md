@@ -254,6 +254,24 @@ So:
 - **Measure**: `lag 20` where the mod is busiest; `lag 30 mod=YourMod` shows which of its methods take the time. `modcheck` warns about
   scene and world searches it can reach from `Update` (`find-every-frame`, `world-zdo-scan`).
 
+## Figures made from the Player prefab are dressed a frame later, and keep working every frame
+
+A copy of the `Player` prefab used as scenery (a crowd, a shopkeeper, a statue) is dressed by its `VisEquipment` in the game's next
+update (`MonoUpdaters` calls `CustomUpdate`), not by the `Set...Item` calls: the armour, the cape (with its MagicaCloth, built and running)
+and what it holds don't exist yet when `Instantiate` returns. Arena switched the capes' cloth off right after making its crowd, found
+nothing to switch off, and ran up to fifty cape simulations through every fight (October 2026; players saw their frame rate drop when a
+fight began). After that, `VisEquipment` keeps re-colouring the body and hair every frame (a new material array each time). So: wait a
+few frames after making the figure, then switch the cloth off and disable its `VisEquipment` (the clothes stay on), and turn off the
+shadows of any lights it holds (a torch): set its `LightLod.m_shadowLod` false too, or the game turns them back on within 20 m.
+
+## Game pieces used as scenery bring their fires' smoke and shadows
+
+A fire piece (brazier, torch, fire pit) made as local scenery keeps its `SmokeSpawner` (a smoke cloud with physics every half second
+within 64 m, the game capping all smoke at 100 and fading the oldest), its `CinderSpawner`, and lights whose `LightLod` gives them
+shadows within 20 m: each shadowing point light draws everything round it six times. Arena's colosseum had some eighty fires and all
+three running whenever a player was near (October 2026). Take the spawners off, set `LightLod.m_shadowLod` false and the light's shadows
+to none (the flames and their light stay), and build a big set of pieces a few milliseconds a frame, not a fixed count a frame.
+
 ## Name everything after your mod
 
 Prefabs, RPCs, ZDO and `m_customData` keys, `$` keys, commands and the Harmony id share one space with every other mod. ClaudeTools' `check`
@@ -276,3 +294,11 @@ cannot clear it, only a game restart). Make the plugin DLL a shell with no libra
 second assembly (also an embedded resource, built from its own project with `DeployToGame=false` so it is never put in `scripts`) and calls
 into it by reflection. See `mods/Scripts` (`Plugin.cs`, `Deps.cs`) and `mods/Scripts.Engine`. The same happens for a first run that lacked a
 dependency: the failed lookup (`System.Buffers` for Jint) is cached for the session, so add every dependency before the first test.
+
+## After a hot reload, GetComponent can't see your old components
+
+A hot reload loads the mod as a new assembly, so `GetComponent<MyThing>()` asks for the new assembly's type and never finds the copies
+the old one added to game objects. A mod that "finds its component or adds one" then adds a second copy on every reload, and the old
+ones keep doing what they did. Ginnungagap (2026-10-15) stacked a fresh rock underside under every piece of land per reload, and the
+stale ones showed as slivers the player took for a new bug. Find your own objects by name (or keep a list), destroy any whose component
+isn't the current type, and remove everything you added in `OnDestroy` when the mod unloads.

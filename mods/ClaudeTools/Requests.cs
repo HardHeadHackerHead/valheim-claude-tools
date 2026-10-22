@@ -100,6 +100,7 @@ namespace ClaudeTools
             }
             catch (Exception e) { _busy = false; Logger.LogWarning("Could not read request " + file + ": " + e.Message); yield break; }
 
+            int ran = 0;   // (for Clawd: commands besides his own)
             foreach (string raw in lines)
             {
                 string line = raw.Trim();
@@ -111,6 +112,8 @@ namespace ClaudeTools
 
                 IEnumerator run = null;
                 string name = cmd.Name;
+                if (name != "clawd") ran++;
+                ClawdOnCommand(cmd, a);
                 try { run = cmd.Run(a, o => outputs.Add(o), e => errors.Add(name + ": " + e)); }
                 catch (Exception e) { errors.Add(name + ": " + e.Message); }
                 // a command that takes its time: step through it here, so an error inside it is reported, not lost
@@ -133,6 +136,7 @@ namespace ClaudeTools
             try { File.WriteAllText(Path.ChangeExtension(file, ".done.json"), result.ToString()); }
             catch (Exception e) { Logger.LogWarning("Could not write the request result: " + e.Message); }
             Logger.LogInfo($"Request {Path.GetFileName(file)}: {outputs.Count} result(s), {errors.Count} error(s)");
+            ClawdOnDone(ran, errors.Count > 0 ? (string)errors[0] : null);
             _busy = false;
             _nextScan = 0f;   // (the next request waiting runs straight away)
         }

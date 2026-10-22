@@ -316,12 +316,13 @@ namespace ClaudeTools
                 List<Prepared> plugins;
                 bool symbols;
                 try { plugins = Prepare(dll, out symbols); }
-                catch (Exception e) { error($"could not load {Path.GetFileName(dll)}: {e.Message}"); yield break; }
+                catch (Exception e) { error($"could not load {Path.GetFileName(dll)}: {e.Message}"); Announce($"Couldn't reload {Path.GetFileNameWithoutExtension(dll)}: {e.Message}"); yield break; }
                 var started = new JArray();
                 foreach (Prepared p in InDependencyOrder(plugins))
                     if (StartPlugin(p, host, out string why)) started.Add($"{p.Name} {p.Version}");
-                    else error($"{p.Guid}: {why}");
+                    else { error($"{p.Guid}: {why}"); Announce($"Couldn't start {p.Name} again: {why}"); }
                 _built[dll] = BuildTime(dll);
+                if (started.Count > 0) Announce("Reloaded " + string.Join(", ", started.Select(x => (string)x)) + (notNow != null ? " (forced: " + notNow + ")" : ""));
                 Logger.LogInfo($"Dev loader: reloaded {Path.GetFileName(dll)} ({string.Join(", ", started.Select(x => (string)x))})");
                 output(new JObject
                 {
@@ -362,10 +363,11 @@ namespace ClaudeTools
                 if (_old.Instance != null) Destroy(_old.Instance);
                 yield return null;   // the old copy's OnDestroy runs now
                 bool started = false;
+                string version = "";
                 try
                 {
                     foreach (Prepared p in InDependencyOrder(Prepare(_dll, out _)))
-                        if (StartPlugin(p, _host, out string why)) started = true;
+                        if (StartPlugin(p, _host, out string why)) { started = true; version = p.Version.ToString(); }
                         else Debug.LogWarning($"[Claude Tools] reload: {p.Guid} not started: {why}");
                 }
                 catch (Exception e) { Debug.LogError("[Claude Tools] reload: could not load the new build: " + e.Message); }
@@ -377,10 +379,11 @@ namespace ClaudeTools
                         Component back = _host.AddComponent(_oldType);
                         Traverse.Create(_old).Property<BaseUnityPlugin>("Instance").Value = (BaseUnityPlugin)back;
                         Debug.LogWarning("[Claude Tools] reload: the new build didn't start, so the old copy is back");
+                        Announce("Claude Tools' new build didn't start, so the old copy is back (see the log)");
                     }
                     catch (Exception e) { Debug.LogError("[Claude Tools] reload: the old copy couldn't come back either (restart the game): " + e.Message); }
                 }
-                else Debug.Log("[Claude Tools] reloaded itself");
+                else { Debug.Log("[Claude Tools] reloaded itself"); Announce($"Reloaded Claude Tools {version}"); }
                 Destroy(gameObject);
             }
         }
@@ -407,13 +410,28 @@ namespace ClaudeTools
                 if (notNow != null)
                 {
                     Logger.LogWarning($"Dev loader: {mod} rebuilt, not reloaded: {notNow}");
-                    Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft, $"{mod} rebuilt: reload it at the main menu or restart");
+                    Announce($"{mod} rebuilt: reload it at the main menu or restart ({notNow})");
                     continue;
                 }
-                StartCoroutine(Reload(dll, loaded, false, o => Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft, $"{mod} reloaded"),
-                    e => Logger.LogWarning($"Dev loader: {e}")));
+                StartCoroutine(Reload(dll, loaded, false, o => { }, e => Logger.LogWarning($"Dev loader: {e}")));   // (Reload says it in chat)
                 return; // one at a time
             }
+        }
+
+        /// <summary>
+        /// A reload, said in the game's chat (on this game only), so the player sees when Claude or a rebuild reloaded a mod; nothing in the
+        /// main menu, where there is no chat. Always in the log as well, where the callers write it.
+        /// </summary>
+        private static void Announce(string text)
+        {
+            try
+            {
+                if (Chat.instance == null) return;
+                Chat.instance.AddString("[Claude Tools]", text, Talker.Type.Normal);
+                Traverse.Create(Chat.instance).Field("m_hideTimer").SetValue(0f);   // (shown now, and fades as usual)
+                Chat.instance.m_chatWindow.gameObject.SetActive(true);
+            }
+            catch (Exception e) { Debug.LogWarning("[Claude Tools] couldn't say it in chat: " + e.Message); }
         }
 
         private readonly Dictionary<string, float> _settleSince = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);

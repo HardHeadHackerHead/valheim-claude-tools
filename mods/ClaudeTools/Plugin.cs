@@ -21,6 +21,7 @@ namespace ClaudeTools
     ///     inventory, what is nearby and what you are looking at, the mods loaded, their settings, the log, a message on your screen, a map pin.
     ///   * Other mods add their own commands (BuildOrders adds blueprint commands) and named places to point cameras at; "help" lists them all.
     ///   * Keys: F12 saves a screenshot for the assistant, Ctrl+F12 surveys the ground where you look.
+    ///   * Clawd ("claude clawd" in the console): a little Claude who follows you and says what Claude is doing (Clawd.cs).
     ///
     /// The guide for assistants is written to BepInEx/claude/CLAUDE.md, so an assistant started in that folder knows all of this.
     /// </summary>
@@ -30,7 +31,7 @@ namespace ClaudeTools
         public const string Guid = "com.quad.claudetools";
         public const string OldGuid = "com.dhack.claudetools"; // (its id until 2026-10: settings move over by themselves, see Shared/Migration.cs)
         public const string Name = "ClaudeTools";
-        public const string Version = "1.2.15";
+        public const string Version = "1.3.0";
 
         internal static Plugin Instance;
         internal static BepInEx.Logging.ManualLogSource Log;
@@ -49,7 +50,8 @@ namespace ClaudeTools
             DHack.Shared.Migration.FromOldGuid(this, OldGuid); // first: before any setting is read
             Instance = this;
             Log = Logger;
-            // its only patches: "ui key" (FakeKeys, in UiCommand.cs) presses keys through the game's input; undone in OnDestroy
+            // its only patches: "ui key" (FakeKeys, in UiCommand.cs) presses keys through the game's input, and Clawd hearing chat
+            // (ClawdHearsChat, in Clawd.cs); undone in OnDestroy
             _harmony = new HarmonyLib.Harmony(Guid);
             _harmony.PatchAll(typeof(Plugin).Assembly);
             _allowRequests = Config.Bind("Requests", "AllowRequests", false,
@@ -61,6 +63,8 @@ namespace ClaudeTools
             _surveyKey = Config.Bind("Keys", "SurveyKey", new KeyboardShortcut(KeyCode.F12, KeyCode.LeftControl),
                 "Write the ground heights, water and buildings around where you look into BepInEx/claude/_survey.json.");
             _surveyRadius = Config.Bind("Keys", "SurveyRadius", 24f, new ConfigDescription("How far a survey reaches (metres).", new AcceptableValueRange<float>(4f, 64f)));
+            BindAdmin();
+            BindClawd();
             RegisterBuiltIns();
             BindLibrary();
             BindDev();
@@ -75,6 +79,7 @@ namespace ClaudeTools
         private void OnDestroy()
         {
             _harmony?.UnpatchSelf();
+            ClawdGone();
             LagStop();
             _stopping = true;
             try { _requestWatcher?.Dispose(); } catch (Exception) { }
@@ -96,6 +101,7 @@ namespace ClaudeTools
         {
             if (!_guideWritten) { _guideWritten = true; WriteGuide(); }
             WatchScripts();
+            ClawdUpdate();
             Player player = Player.m_localPlayer;
 
             if (player != null && !TypingOrMenuOpen())
@@ -109,7 +115,10 @@ namespace ClaudeTools
                     player.Message(MessageHud.MessageType.Center, $"Surveyed {(int)_surveyRadius.Value} m around this spot for the assistant");
                 }
                 else if (Input.GetKeyDown(_shotKey.Value) && !Input.GetKey(KeyCode.LeftControl) && !Input.GetKey(KeyCode.RightControl))
+                {
+                    ClawdScreenshot();
                     StartCoroutine(Screenshot(Path.Combine(ShotDir, Stamp() + ".png"), 0, p => player.Message(MessageHud.MessageType.TopLeft, "Screenshot saved for the assistant")));
+                }
             }
 
             if (_requestArrived) { _requestArrived = false; _nextScan = Mathf.Min(_nextScan, Time.unscaledTime + RequestSettle); }

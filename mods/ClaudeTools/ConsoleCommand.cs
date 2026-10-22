@@ -64,6 +64,7 @@ namespace ClaudeTools
             var outputs = new JArray();
             var errors = new List<string>();
             IEnumerator run = null;
+            ClawdOnCommand(cmd, a);
             try { run = cmd.Run(a, o => outputs.Add(o), e => errors.Add(e)); }
             catch (Exception e) { errors.Add(e.Message); }
             if (run == null) Print(term, cmd.Name, outputs, errors);
@@ -92,6 +93,7 @@ namespace ClaudeTools
 
         private static void Print(Terminal term, string name, JArray outputs, List<string> errors)
         {
+            if (name != "clawd") ClawdOnDone(1, errors.Count > 0 ? name + ": " + errors[0] : null);
             var lines = new List<string>();
             foreach (JToken o in outputs) lines.AddRange(Lines(o, ""));
             lines.AddRange(errors.Select(e => "error: " + e));

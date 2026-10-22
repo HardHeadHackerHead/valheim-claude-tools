@@ -114,7 +114,9 @@ namespace ClaudeTools
                 cam.nearClipPlane = 0.2f;
                 cam.farClipPlane = Mathf.Max(cam.farClipPlane, 600f);
                 cam.targetTexture = rt;
+                bool clawd = Buddy != null && Buddy.Hide(true);   // (Claude's pictures are of the world, not of Clawd)
                 cam.Render();
+                if (clawd) Buddy.Hide(false);
                 Texture2D tex = ReadBack(rt);
                 string saved = SavePng(tex, path);
                 Destroy(tex);

@@ -24,6 +24,8 @@ profile's `BepInEx` folder with r2modman or Thunderstore Mod Manager (Settings â
 ## Before you start
 
 - **Ask the player** before looking at or doing things in their game, and tell them what you are about to do.
+  With `AllowAdmin` on, the player is the server's admin and has asked: do what they asked and say what you did (see "Being the
+  admin" for what still needs a yes first).
 - Requests only run when `AllowRequests = true` in `BepInEx/config/com.quad.claudetools.cfg` (the player switches it on) and the game is
   running. Most commands need the player **in a world**; the mod-maker ones (`modcheck`, `who`, `clashes`, `patches`, `game`, `gameupdate`,
   `library`, `systems`) and `help`, `mods`, `config`, `log`, `errors`, `waitfor`, `reload`, `devmods`, `language` and `screen` (the main menu's buttons too) also run from the main menu. If a request stays as `.txt`,
@@ -92,6 +94,8 @@ for the newest; use `_` for spaces). Positions in a place are metres: x right, y
 | `daytime <hh:mm \| 0-1 \| off>` | Hold this game at a time of day (pictures in daylight), as the game's console `tod` does; `off` gives the world's time back. Only where cheats are allowed. |
 | `say <text>` | A message in the middle of the player's screen. |
 | `pin <place\|x z> <text>` | A labelled pin on the player's map. |
+| `land <x> <z>` | The land anywhere in the world, loaded or not: biome, the generator's ground height, under water. Check it before a teleport: a Mountain spot freezes a player without frost resistance (a tombstone often lies somewhere like that). |
+| `clawd [say <text> \| <mood> [text] \| here \| bye \| chatty on\|off]` | Clawd, a little you: a small orange Claude who follows the player and says what you are doing in a speech bubble (see "Clawd" below). |
 | `wait <seconds>` | Pause, so things happen before the next picture. |
 | `prefabs <text>` | Every prefab name (pieces, items, creatures, effects) containing the text: the exact name `objects`, `render`, `inspect` and `give` need. A player's "war stone" may be `BobWarstone`: look it up rather than guess. |
 | `objects <prefab> [remove]` | Every object of that prefab in the world, loaded or not, nearest first (where, loaded, who built it). `remove` deletes them all: ask the player first; exact prefab name; only where cheats are allowed. On a client it only sees what is near the players. |
@@ -112,6 +116,39 @@ for the newest; use `_` for spaces). Positions in a place are metres: x right, y
 | `devmods` | The mods in `BepInEx/scripts`: loaded or not, their reload level and why, and whether a newer build is waiting. |
 
 Pictures can only show what is loaded, which is the world near the player (about 60 m or more).
+
+## Clawd
+
+Once the player summons him (`claude clawd` in the console, or `clawd` in a request when they ask for him), Clawd follows them and stays
+until `clawd bye`, coming back each time they join a world. He only shows on this player's game. While he is out, every command
+you run is narrated in his speech bubble ("Peeking in your bag...", "Reloading Parkour...") and he says how a request went (happy when
+it worked, sad with the first error when it didn't), so the player sees what you are doing without reading files. He also remarks on
+what happens to them (night, rain, a new land, being hurt) unless `clawd chatty off`, and the player can pet him (use key). He has a
+life of his own: while the player stands about he wanders, goes to look at fires, dropped items, berries, chests, stations and tame
+animals (sometimes saying something about them), sits by a fire at night, and hides behind the player from enemies; while you work he
+stays close and thinks. When the player wears Wrong Universe's jetpack he wears a small one and flies beside them; when they web-sling (Webslinger) he swings beside them on his own web.
+
+- `clawd say <text>`: talk to the player through him (a short line; it stays up a few seconds). Use it for what they should know now:
+  "The bridge is placed: go and look", "Parkour reloaded, try the wall run again".
+- `clawd <mood> [text]`: happy, sad, think, wave, dance, scared, love, sleep, idle (with an optional line), e.g. `clawd dance It works!`.
+- He is out of Claude's own pictures (`view`, `orbit`, `top`, `render`), but in the player's screenshots (`shot`).
+
+## Being the admin
+
+When the player hosts (or is on the server's admin list) and turns on `AllowAdmin` (section `Requests` of the config), these act on
+the whole server: `players` (everyone connected: start here; `status` lists them too), `bring <who>`, `goto <who>`,
+`tp <who> to <who> | to <x> <z> | back`, `heal <who> [hp]`, `effect <who> <effect>` (`effect me list`), `tell <who> <text>`,
+`announce <text>`, `worldtime [<hh:mm> | skip <hours>]`, `save`, `kick`, `ban`, `unban`. `<who>` is a character name (or the start of
+one), `me` or `all`. They use calls the game itself accepts on every character, carried out in that player's own game, so the other
+players need no mod, and it works wherever they are on the map.
+
+- A player you act on sees who did it (top left of their screen), and every action goes into `BepInEx/claude/admin.log`.
+- Teleports land on ground somebody stands on, or the measured ground at a spot: never type a height (a landing 3 m up has killed
+  the player twice). Each move answers whether they arrived; `tp <who> back` undoes it.
+- Ask first, saying exactly what will happen: `ban`, anything that hurts or kills, spawning creatures (say their tier), and changes to
+  many things at once. Kick, bring, heal, messages and the clock: just do them when asked.
+- Not possible from here: another player's bag, skills or settings (only their own game holds them).
+- Several Claude sessions may share the requests folder: give request files a name of your own (`adm_bring1.txt`, not `t1.txt`).
 
 ## Reloading a mod you are making
 
