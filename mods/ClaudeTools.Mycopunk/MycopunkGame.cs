@@ -15,7 +15,9 @@ namespace ClaudeTools.Mycopunk
         // (PlayerLook is the local player's camera rig: there from spawning in a level, the hub included, until leaving it)
         public override bool InWorld => PlayerLook.Instance != null;
 
-        public override bool Typing => base.Typing || Menu.IsCreatedAndOpenAllowInMission();
+        // (its text chat reads keys itself, without a text box: PlayerLook says when it's open)
+        public override bool Typing =>
+            base.Typing || Menu.IsCreatedAndOpenAllowInMission() || (PlayerLook.Instance != null && PlayerLook.Instance.IsTextChatOpen);
 
         public override bool CheatsAllowed
         {

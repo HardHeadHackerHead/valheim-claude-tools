@@ -8,14 +8,19 @@ using Newtonsoft.Json.Linq;
 namespace ClaudeTools
 {
     /// <summary>
-    /// Thunderstore for the command-line tools (PatchMap, modkit): the most-downloaded Valheim mods, a package's latest version, and its DLLs
-    /// taken out of the zip by byte ranges. (The game's own copy of this uses UnityWebRequest, in Library.cs.)
+    /// Thunderstore for the command-line tools (PatchMap, modkit): the most-downloaded mods of a game's community (Valheim's unless told),
+    /// a package's latest version, and its DLLs taken out of the zip by byte ranges. (The game's own copy of this uses UnityWebRequest, in
+    /// Library.cs.)
     /// </summary>
     internal static class Thunderstore
     {
-        private const string Listing = "https://thunderstore.io/api/cyberstorm/listing/valheim/?ordering=most-downloaded&page=";
+        /// <summary>The game's community on Thunderstore (thunderstore.io/c/valheim), and its BepInEx pack (never a mod in the top list).</summary>
+        public static string Community = "valheim";
+        public static string BepInExPack = "denikson-BepInExPack_Valheim";
+
+        private static string Listing => $"https://thunderstore.io/api/cyberstorm/listing/{Community}/?ordering=most-downloaded&page=";
         private const string PackageApi = "https://thunderstore.io/api/experimental/package/";
-        public static readonly string[] NotMods = { "ebkr-r2modman", "denikson-BepInExPack_Valheim", "Kesomannen-GaleModManager" };
+        public static string[] NotMods => new[] { "ebkr-r2modman", BepInExPack, "Kesomannen-GaleModManager" };
 
         private static readonly HttpClient Http = MakeClient();
 
@@ -53,7 +58,7 @@ namespace ClaudeTools
         {
             try
             {
-                JObject json = JObject.Parse(GetString("https://thunderstore.io/api/cyberstorm/listing/valheim/?deprecated=true&q=" + Uri.EscapeDataString(name)));
+                JObject json = JObject.Parse(GetString($"https://thunderstore.io/api/cyberstorm/listing/{Community}/?deprecated=true&q=" + Uri.EscapeDataString(name)));
                 JToken hit = (json["results"] as JArray)?.FirstOrDefault(r => string.Equals((string)r["namespace"], ns, StringComparison.OrdinalIgnoreCase)
                                                                           && string.Equals((string)r["name"], name, StringComparison.OrdinalIgnoreCase));
                 return Math.Max(0, (long?)hit?["download_count"] ?? 0);
@@ -120,7 +125,7 @@ namespace ClaudeTools
             var result = new JObject
             {
                 ["package"] = full, ["version"] = version, ["rank"] = rank, ["downloads"] = downloads > 0 ? downloads : Downloads(ns, name),
-                ["page"] = $"https://thunderstore.io/c/valheim/p/{ns}/{name}/", ["scanned"] = DateTime.Now.ToString("s"), ["dlls"] = scans,
+                ["page"] = $"https://thunderstore.io/c/{Community}/p/{ns}/{name}/", ["scanned"] = DateTime.Now.ToString("s"), ["dlls"] = scans,
             };
             File.WriteAllText(Path.Combine(fresh, "scan.json"), result.ToString());
             if (Directory.Exists(dir)) Directory.Delete(dir, true);

@@ -13,7 +13,7 @@ namespace ClaudeTools
     /// </summary>
     internal static class Cli
     {
-        private const string Usage = @"modkit: Claude Tools' commands for Valheim mod makers, without the game running.
+        private const string Usage = @"modkit: Claude Tools' commands for mod makers, without the game running (Valheim, Mycopunk, Emberville).
 
   modkit modcheck <mod name | GUID | path\to\Mod.dll>   the pre-release check (or modkit check): mistakes that lose players' things or break other mods
   modkit who <Type.Method>                           which mods (installed and popular) patch a game method (who system <name>: a whole system)
@@ -28,26 +28,30 @@ namespace ClaudeTools
   modkit library drop <Namespace-Name> [...]         remove one
   modkit library update [count]                      fetch the most-downloaded mods (count, 10 by default)
   modkit package <mod folder> [--namespace Team]     get a mod ready for Thunderstore: writes its thunderstore.toml (for tcli) and checks
-                                                     everything an upload needs (first time: --namespace, the Thunderstore team)
+                                                     everything an upload needs (first time: --namespace, the Thunderstore team). Valheim only
   modkit package check <built .zip>                  check the zip tcli build made, before testing and publishing it
 
-Options: --json (the raw answer), --valheim <folder> (the game), --bepinex <folder> (BepInEx, when a mod manager keeps it in a profile).";
+Options: --json (the raw answer), --game valheim|mycopunk|emberville (which game: by default the one modkit is inside, else Valheim),
+--gamedir <folder> (the game's folder; --valheim <folder> too), --bepinex <folder> (BepInEx, when a mod manager keeps it in a profile).";
 
-        private static string _valheim, _bepinex, _managed, _library;
+        private static string _bepinex, _managed, _library;
         private static string[] _search;
+        private static GameProfile _game;
 
-        public static int Run(string[] args, string valheim, string bepinex)
+        public static int Run(string[] args, GameProfile game, string gameDir, string bepinex)
         {
             bool json = args.Contains("--json");
             string[] a = args.Where(x => x != "--json").ToArray();
-            _valheim = valheim;
+            _game = game;
             _bepinex = bepinex;
-            _managed = Path.Combine(valheim, "valheim_Data", "Managed");
+            _managed = Path.Combine(gameDir, game.DataDir, "Managed");
             _library = Path.Combine(_bepinex, "claude", "library");
             _search = new[] { Path.Combine(_bepinex, "core"), _managed, Path.Combine(_bepinex, "plugins") };
-            // Valheim's code and systems (in the game, ClaudeTools.Valheim hands these to Claude Tools)
-            GameIndex.Assemblies = new[] { "assembly_valheim.dll", "assembly_utils.dll", "assembly_guiutils.dll" };
-            UseSystems(ValheimSystems.Systems, ValheimSystems.HighStakes, ValheimSystems.DoesTheJob, ValheimSystems.NotAJob);
+            // the game's code, systems and Thunderstore community (in the game, its Claude Tools adapter hands these over)
+            GameIndex.Assemblies = game.Assemblies;
+            UseSystems(game.Systems, game.HighStakes, game.DoesTheJob, game.NotAJob);
+            Thunderstore.Community = game.Community;
+            Thunderstore.BepInExPack = game.BepInExPack;
             if (a.Length == 0 || a[0] == "help" || a[0] == "--help" || a[0] == "-h") { Console.WriteLine(Usage); return 0; }
             try
             {
@@ -159,9 +163,12 @@ Options: --json (the raw answer), --valheim <folder> (the game), --bepinex <fold
 
                 case "gameupdate": return GameUpdate();
 
-                case "library": return LibraryCommand(a);
+                case "library":
+                    if (_game.Community == null) return Fail($"{_game.Name} has no Thunderstore community known to modkit, so no mod library");
+                    return LibraryCommand(a);
 
                 case "package":
+                    if (_game.Id != "valheim") return Fail($"modkit package knows Thunderstore's Valheim rules and categories only (not {_game.Name}'s yet)");
                     return Package.Run(a, _search, CheckFull, () => LibraryScans(Path.Combine(_library, "mods"), Shipped()));
 
                 default:
@@ -204,7 +211,8 @@ Options: --json (the raw answer), --valheim <folder> (the game), --bepinex <fold
         private static List<JObject> Shipped()
         {
             if (_shipped != null) return _shipped;
-            using (Stream s = typeof(Cli).Assembly.GetManifestResourceStream("library/shipped.json.gz"))
+            // (the shipped patch map is Valheim's top mods)
+            using (Stream s = _game.Id == "valheim" ? typeof(Cli).Assembly.GetManifestResourceStream("library/shipped.json.gz") : null)
                 _shipped = ReadShipped(s, out _shippedBuilt);
             return _shipped;
         }
@@ -247,7 +255,7 @@ Options: --json (the raw answer), --valheim <folder> (the game), --bepinex <fold
             {
                 var names = a.Skip(2).SelectMany(x => x.Split(',')).Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
                 if (names.Count == 0 || names.Any(n => !IsPackage(n)))
-                    return Fail("name the mod as Thunderstore does, Namespace-Name (e.g. modkit library get Azumatt-AzuCraftyBoxes): its page is thunderstore.io/c/valheim/p/Namespace/Name");
+                    return Fail($"name the mod as Thunderstore does, Namespace-Name (e.g. modkit library get Azumatt-AzuCraftyBoxes): its page is thunderstore.io/c/{_game.Community}/p/Namespace/Name");
                 if (sub == "get")
                 {
                     foreach (string n in names)
