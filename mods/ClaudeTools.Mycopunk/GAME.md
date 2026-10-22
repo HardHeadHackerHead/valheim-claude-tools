@@ -8,6 +8,7 @@ the hub included; `ui`, `shot`, `log`, `errors` and the other main-menu commands
 | `status` | The level, the player, where they stand, health, whether this game hosts, who is in it. |
 | `ui [list [text]]` | Every button on screen with its text and where it is: the game's own buttons too (the main menu's, the hub's windows). The same as `screen list`. |
 | `ui click <words or name> [n]` | Press a button by its text (or its object's name, for one showing only an icon), as the game presses it: `ui click play` at the main menu. |
+| `ui hover <words or name>` / `ui hover off` | The pointer over a button without moving the real mouse, so its hover info shows (an upgrade's stats and costs) for a picture: `ui hover cycling repairs`, then `shot`. |
 | `ui key <key> [frames=1]` | A key down for that many frames, then up, through the game's own input (the new Input System: what the game reads sees it): `ui key F8`, `ui key Escape`, `ui key Enter`, `ui key E`. |
 | `ui texts [text]` / `ui type <text>` / `ui submit` | The texts on screen; type into the focused text box, and submit it. |
 

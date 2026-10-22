@@ -76,7 +76,7 @@ namespace ClaudeTools.Mycopunk
                 return null;
             });
             // the windows on screen, by the name Mycopunk players use: Claude Tools' screen command (Mycopunk's buttons and keys: Screen.cs)
-            RegisterCommand(Name, "ui", "ui [list [text] | texts [text] | click <words or name> [n] | key <key> [frames] | type <text> | submit | slider <n> <value>]: " +
+            RegisterCommand(Name, "ui", "ui [list [text] | texts [text] | click <words or name> [n] | hover <words or name> | hover off | key <key> [frames] | type <text> | submit | slider <n> <value>]: " +
                 "the same as screen: every button on screen (the game's own too) with its text; click one by its text or its object's name (the main " +
                 "menu's Play: ui click play); press a key through the game's input (ui key F8). Clicking, typing and keys only for the host or alone", (a, output, error) =>
                 RunCommand(new[] { "screen" }.Concat(a.Length > 1 ? a.Skip(1) : new[] { "list" }).ToArray(), output, error));

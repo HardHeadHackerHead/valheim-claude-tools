@@ -52,7 +52,47 @@ namespace ClaudeTools.Mycopunk
         private static string Plain(string s) => System.Text.RegularExpressions.Regex.Replace(s ?? "", "<[^>]*>", "").Replace("\n", " ").Trim();
 
         public override IEnumerator Screen(string sub, string[] a, string rest, Action<JObject> output, Action<string> error) =>
-            sub == "key" ? PressKey(a, output, error) : null;
+            sub == "key" ? PressKey(a, output, error) : sub == "hover" ? Hover(a, output, error) : null;
+
+        private static readonly List<Component> hovered = new List<Component>();
+
+        /// <summary>
+        /// screen hover &lt;words or name&gt; | hover off: the pointer over a button without the real mouse, as the game hears it (the
+        /// button's and its info panel's OnPointerEnter), so its hover info shows (an upgrade's stats and costs) for a picture. It stays
+        /// until "hover off", another hover, or the real mouse moves over something else.
+        /// </summary>
+        private static IEnumerator Hover(string[] a, Action<JObject> output, Action<string> error)
+        {
+            foreach (Component c in hovered)
+                if (c is Pigeon.HoverInfo h && h != null) h.OnPointerExit(null);
+                else if (c is Pigeon.UI.Button b && b != null) b.OnPointerExit(null);
+            hovered.Clear();
+            string words = string.Join(" ", a.Skip(2)).Trim();
+            if (words.Length == 0 || words.Equals("off", StringComparison.OrdinalIgnoreCase)) { output(new JObject { ["hover"] = "off" }); yield break; }
+
+            var buttons = new List<(Pigeon.UI.Button button, string label)>();
+            foreach (Canvas canvas in UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+            {
+                if (canvas == null || !canvas.isRootCanvas || !canvas.isActiveAndEnabled) continue;
+                foreach (Pigeon.UI.Button b in canvas.GetComponentsInChildren<Pigeon.UI.Button>(false))
+                {
+                    if (b == null || !b.isActiveAndEnabled) continue;
+                    TMP_Text text = b.GetComponentsInChildren<TMP_Text>(false).FirstOrDefault(t => t.enabled && !string.IsNullOrWhiteSpace(t.text));
+                    buttons.Add((b, text != null ? Plain(text.text) : b.gameObject.name));
+                }
+            }
+            var match = buttons.FirstOrDefault(x => x.label.Equals(words, StringComparison.OrdinalIgnoreCase));
+            if (match.button == null) match = buttons.FirstOrDefault(x => x.label.IndexOf(words, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (match.button == null) match = buttons.FirstOrDefault(x => x.button.gameObject.name.IndexOf(words, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (match.button == null) { error($"no button on screen matches \"{words}\" (see ui list)"); yield break; }
+
+            match.button.OnPointerEnter(null);
+            hovered.Add(match.button);
+            var infos = match.button.GetComponents<Pigeon.HoverInfo>().Concat(match.button.GetComponentsInParent<Pigeon.HoverInfo>()).Distinct().ToList();
+            foreach (Pigeon.HoverInfo h in infos) { h.OnPointerEnter(null); hovered.Add(h); }
+            yield return null; yield return null;
+            output(new JObject { ["hover"] = match.label, ["info"] = new JArray(infos.Select(h => h.GetType().Name)) });
+        }
 
         /// <summary>
         /// screen key &lt;key&gt; [frames=1]: the key down on the keyboard for that many frames, then up, as the new Input System's own events
