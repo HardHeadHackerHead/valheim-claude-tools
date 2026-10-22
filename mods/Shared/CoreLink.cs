@@ -9,8 +9,9 @@ namespace ClaudeTools
     /// <summary>
     /// How a game's adapter (ClaudeTools.Valheim and the like) finds Claude Tools, whose DLL it references. Hot loaders (Claude Tools' dev
     /// loader, ScriptEngine) load a mod under a new name each time ("ClaudeTools-638..."), so .NET can't find "ClaudeTools" by name: this
-    /// answers with the newest copy loaded. Shared source (mods/Shared/CoreLink.cs), compiled into each adapter; Install before any code
-    /// that uses Claude Tools runs, and wait until Running says it has started (the loader may start the adapter first).
+    /// answers with the newest copy loaded (or the exact one asked for, when the dev loader pointed an adapter at it). Shared source
+    /// (mods/Shared/CoreLink.cs), compiled into each adapter and into Claude Tools itself. An adapter installs it before any code that uses
+    /// Claude Tools runs, and waits until Running says Claude Tools has started (the loader may start the adapter first).
     /// </summary>
     internal static class CoreLink
     {

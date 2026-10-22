@@ -123,6 +123,10 @@ namespace ClaudeTools
             {
                 bool symbols = def.MainModule.HasSymbols;
                 def.Name.Name = $"{def.Name.Name}-{DateTime.Now.Ticks}";
+                // a mod that uses another hot-loaded mod's code (a game's adapter and Claude Tools) gets that mod's live copy, not the first
+                // one .NET loaded under the plain name
+                foreach (AssemblyNameReference used in def.MainModule.AssemblyReferences)
+                    if (LiveName(used.Name) is string live) used.Name = live;
                 Assembly asm = null;
                 if (symbols)
                 {
@@ -170,6 +174,32 @@ namespace ClaudeTools
                 try { return AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(dll)), new ReaderParameters { AssemblyResolver = resolver, ReadSymbols = true, SymbolStream = new MemoryStream(File.ReadAllBytes(Path.ChangeExtension(dll, ".pdb"))) }); }
                 catch (Exception) { } // a pdb that doesn't match the DLL (or an old format): load without it
             return AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(dll)), new ReaderParameters { AssemblyResolver = resolver });
+        }
+
+        /// <summary>
+        /// The name a running mod's code was loaded under, when a hot loader renamed it ("ClaudeTools-638...") and something references it
+        /// by its plain name; null when it runs under its own name or isn't running.
+        /// </summary>
+        private static string LiveName(string plain)
+        {
+            foreach (PluginInfo info in Chainloader.PluginInfos.Values)
+            {
+                if (info.Instance == null) continue;
+                string name = info.Instance.GetType().Assembly.GetName().Name;
+                if (name != plain && BaseName(name) == plain) return name;
+            }
+            return null;
+        }
+
+        /// <summary>A hot-loaded copy's name without what the loader added ("ClaudeTools-638..." is ClaudeTools).</summary>
+        internal static string BaseName(string name) => System.Text.RegularExpressions.Regex.Replace(name, @"-\d{8,}$", "");
+
+        /// <summary>The mods running whose code uses Claude Tools' own (a game's adapter): they go when it reloads, and come back with it.</summary>
+        private static List<PluginInfo> UsersOfClaudeTools()
+        {
+            string mine = BaseName(typeof(Plugin).Assembly.GetName().Name);
+            return Chainloader.PluginInfos.Values.Where(i => i.Instance != null && i.Metadata.GUID != Guid
+                && i.Instance.GetType().Assembly.GetReferencedAssemblies().Any(r => BaseName(r.Name) == mine)).ToList();
         }
 
         private static IEnumerable<Type> TypesOf(Assembly asm)
@@ -289,11 +319,25 @@ namespace ClaudeTools
             {
                 if (loaded != null && loaded.Metadata.GUID == Guid)
                 {
-                    // Claude Tools itself: a helper from this copy hands over once this request's answer is written (see Handover)
-                    output(new JObject { ["reloading"] = $"{Name} {Version}", ["dll"] = dll, ["note"] = "the new copy starts in a moment: send help or devmods next (other mods add their commands back within 5 seconds)" });
+                    // Claude Tools itself: a helper from this copy hands over once this request's answer is written (see Handover). The
+                    // mods using its code (the game's adapter) go and come back with it, so they must be reloadable too
+                    GameObject from = Host();
+                    List<PluginInfo> users = UsersOfClaudeTools();
+                    PluginInfo stuck = users.FirstOrDefault(u => (u.Instance.gameObject != from && u.Instance.gameObject != _devHost) || !File.Exists(u.Location) || !InScripts(u.Location));
+                    if (stuck != null)
+                    {
+                        error($"{stuck.Metadata.Name} uses Claude Tools' code and was loaded from {Path.GetDirectoryName(stuck.Location ?? "")}, so it can't come back with " +
+                              "a new Claude Tools: restart the game to load the new build (or keep both in BepInEx/scripts)");
+                        yield break;
+                    }
+                    output(new JObject
+                    {
+                        ["reloading"] = $"{Name} {Version}", ["dll"] = dll, ["with"] = new JArray(users.Select(u => u.Metadata.Name)),
+                        ["note"] = "the new copy starts in a moment: send help or devmods next (other mods add their commands back within 5 seconds)",
+                    });
                     var helper = new GameObject("ClaudeTools_Handover");
                     DontDestroyOnLoad(helper);
-                    helper.AddComponent<Handover>().Begin(dll, loaded, Host(), GetType());
+                    helper.AddComponent<Handover>().Begin(dll, loaded, from, GetType(), users);
                     yield break;
                 }
                 JObject level = ReloadLevel(dll);
@@ -337,7 +381,8 @@ namespace ClaudeTools
         /// Reloading Claude Tools itself: it can't unload the code that carries out the request, so a helper from the old copy (its code stays
         /// loaded) waits until the request's answer is written, takes the old copy down (its patches, commands and watchers go in OnDestroy),
         /// and a frame later starts the new build on the same object. The mods already loaded stay as they are (BepInEx's list keeps them, and
-        /// they add their commands to the new copy themselves). If the new build doesn't start, the old copy is put back.
+        /// they add their commands to the new copy themselves), except those using its code (the game's adapter): bound to the old copy, they
+        /// go first and are loaded again after the new one, bound to it. If the new build doesn't start, the old copies are put back.
         /// </summary>
         private sealed class Handover : MonoBehaviour
         {
@@ -345,9 +390,15 @@ namespace ClaudeTools
             private PluginInfo _old;
             private GameObject _host;
             private Type _oldType;
+            private List<KeyValuePair<PluginInfo, Type>> _users;
+            private GameAdapter _game;   // (the game's adapter as it was: the new one isn't there yet when the reload is said)
             private int _frames;
 
-            public void Begin(string dll, PluginInfo old, GameObject host, Type oldType) { _dll = dll; _old = old; _host = host; _oldType = oldType; }
+            public void Begin(string dll, PluginInfo old, GameObject host, Type oldType, List<PluginInfo> users)
+            {
+                _dll = dll; _old = old; _host = host; _oldType = oldType; _game = Adapter;
+                _users = users.Select(u => new KeyValuePair<PluginInfo, Type>(u, u.Instance.GetType())).ToList();
+            }
 
             private void Update()
             {
@@ -356,12 +407,34 @@ namespace ClaudeTools
                 StartCoroutine(Run());
             }
 
+            private void Say(string text)
+            {
+                try { _game.Announce(text); }
+                catch (Exception e) { Debug.LogWarning("[Claude Tools] couldn't say it in the game: " + e.Message); }
+            }
+
+            private void PutBack(PluginInfo info, Type type)
+            {
+                try
+                {
+                    Chainloader.PluginInfos[info.Metadata.GUID] = info;
+                    Component back = _host.AddComponent(type);
+                    Traverse.Create(info).Property<BaseUnityPlugin>("Instance").Value = (BaseUnityPlugin)back;
+                }
+                catch (Exception e) { Debug.LogError($"[Claude Tools] reload: the old {info.Metadata.Name} couldn't come back either (restart the game): " + e.Message); }
+            }
+
             private IEnumerator Run()
             {
                 string guid = _old.Metadata.GUID;
+                foreach (var user in _users)
+                {
+                    Chainloader.PluginInfos.Remove(user.Key.Metadata.GUID);
+                    if (user.Key.Instance != null) Destroy(user.Key.Instance);
+                }
                 Chainloader.PluginInfos.Remove(guid);
                 if (_old.Instance != null) Destroy(_old.Instance);
-                yield return null;   // the old copy's OnDestroy runs now
+                yield return null;   // the old copies' OnDestroy runs now
                 bool started = false;
                 string version = "";
                 try
@@ -373,17 +446,26 @@ namespace ClaudeTools
                 catch (Exception e) { Debug.LogError("[Claude Tools] reload: could not load the new build: " + e.Message); }
                 if (!started)
                 {
-                    try
-                    {
-                        Chainloader.PluginInfos[guid] = _old;
-                        Component back = _host.AddComponent(_oldType);
-                        Traverse.Create(_old).Property<BaseUnityPlugin>("Instance").Value = (BaseUnityPlugin)back;
-                        Debug.LogWarning("[Claude Tools] reload: the new build didn't start, so the old copy is back");
-                        Announce("Claude Tools' new build didn't start, so the old copy is back (see the log)");
-                    }
-                    catch (Exception e) { Debug.LogError("[Claude Tools] reload: the old copy couldn't come back either (restart the game): " + e.Message); }
+                    PutBack(_old, _oldType);
+                    foreach (var user in _users) PutBack(user.Key, user.Value);
+                    Debug.LogWarning("[Claude Tools] reload: the new build didn't start, so the old copy is back");
+                    Say("Claude Tools' new build didn't start, so the old copy is back (see the log)");
                 }
-                else { Debug.Log("[Claude Tools] reloaded itself"); Announce($"Reloaded Claude Tools {version}"); }
+                else
+                {
+                    Debug.Log("[Claude Tools] reloaded itself");
+                    Say($"Reloaded Claude Tools {version}");
+                    // the mods that use its code, loaded again (each DLL once), now bound to the new copy (Prepare points them at it)
+                    foreach (string dll in _users.Select(u => u.Key.Location).Distinct(StringComparer.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            foreach (Prepared p in InDependencyOrder(Prepare(dll, out _)))
+                                if (!StartPlugin(p, _host, out string why)) Debug.LogWarning($"[Claude Tools] reload: {p.Guid} not started again: {why}");
+                        }
+                        catch (Exception e) { Debug.LogError($"[Claude Tools] reload: could not load {Path.GetFileName(dll)} again (restart the game): {e.Message}"); }
+                    }
+                }
                 Destroy(gameObject);
             }
         }

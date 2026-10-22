@@ -50,6 +50,7 @@ namespace ClaudeTools
         private void Awake()
         {
             DHack.Shared.Migration.FromOldGuid(this, OldGuid); // first: before any setting is read
+            CoreLink.Install();   // (mods it hot-loads find each other under their new names)
             Instance = this;
             Log = Logger;
             _allowRequests = Config.Bind("Requests", "AllowRequests", false,
@@ -68,6 +69,7 @@ namespace ClaudeTools
 
         private void OnDestroy()
         {
+            CoreLink.Uninstall();
             LagStop();
             _stopping = true;
             try { _requestWatcher?.Dispose(); } catch (Exception) { }
