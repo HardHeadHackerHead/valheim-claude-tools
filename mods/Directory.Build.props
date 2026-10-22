@@ -1,11 +1,33 @@
 <Project>
   <!-- Shared settings for mods on Windows and native Linux. -->
   <PropertyGroup>
+    <!--
+      Which game a project builds against: a project named *.Mycopunk or *.Emberville is for that game, any other for Valheim. Claude Tools'
+      core (mods/ClaudeTools) uses no game's code and builds against any of them (-p:Game=Mycopunk; each game's adapter asks for its own).
+    -->
+    <Game Condition="'$(Game)' == '' and $(MSBuildProjectName.EndsWith('.Mycopunk'))">Mycopunk</Game>
+    <Game Condition="'$(Game)' == '' and $(MSBuildProjectName.EndsWith('.Emberville'))">Emberville</Game>
+    <Game Condition="'$(Game)' == ''">Valheim</Game>
+
     <ValheimDir Condition="'$(ValheimDir)' == ''">$(VALHEIM_DIR)</ValheimDir>
     <ValheimDir Condition="'$(ValheimDir)' == '' and '$(OS)' == 'Windows_NT'">D:/SteamLibrary/steamapps/common/Valheim</ValheimDir>
     <ValheimDir Condition="'$(ValheimDir)' == '' and Exists('$(HOME)/.local/share/Steam/steamapps/common/Valheim/valheim.x86_64')">$(HOME)/.local/share/Steam/steamapps/common/Valheim</ValheimDir>
     <ValheimDir Condition="'$(ValheimDir)' == '' and Exists('$(HOME)/.steam/steam/steamapps/common/Valheim/valheim.x86_64')">$(HOME)/.steam/steam/steamapps/common/Valheim</ValheimDir>
     <ValheimDir Condition="'$(ValheimDir)' == '' and Exists('$(HOME)/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Valheim/valheim.x86_64')">$(HOME)/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Valheim</ValheimDir>
+    <MycopunkDir Condition="'$(MycopunkDir)' == ''">$(MYCOPUNK_DIR)</MycopunkDir>
+    <MycopunkDir Condition="'$(MycopunkDir)' == ''">$(MYCO_GAMEDIR)</MycopunkDir>
+    <MycopunkDir Condition="'$(MycopunkDir)' == '' and '$(OS)' == 'Windows_NT'">D:/SteamLibrary/steamapps/common/Mycopunk</MycopunkDir>
+    <EmbervilleDir Condition="'$(EmbervilleDir)' == ''">$(EMBERVILLE_DIR)</EmbervilleDir>
+    <EmbervilleDir Condition="'$(EmbervilleDir)' == '' and '$(OS)' == 'Windows_NT'">D:/SteamLibrary/steamapps/common/Emberville Demo</EmbervilleDir>
+
+    <!-- the game's folder and its data folder (where Unity keeps Managed) -->
+    <GameDir Condition="'$(Game)' == 'Valheim'">$(ValheimDir)</GameDir>
+    <DataDir Condition="'$(Game)' == 'Valheim'">valheim_Data</DataDir>
+    <GameDir Condition="'$(Game)' == 'Mycopunk'">$(MycopunkDir)</GameDir>
+    <DataDir Condition="'$(Game)' == 'Mycopunk'">Mycopunk_Data</DataDir>
+    <GameDir Condition="'$(Game)' == 'Emberville'">$(EmbervilleDir)</GameDir>
+    <DataDir Condition="'$(Game)' == 'Emberville'">Emberville_Data</DataDir>
+
     <DeployToGame Condition="'$(DeployToGame)' == ''">true</DeployToGame>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>latest</LangVersion>
@@ -14,10 +36,19 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <DebugType>full</DebugType> <!-- ScriptEngine needs the .pdb next to the DLL -->
     <DebugSymbols>true</DebugSymbols>
-    <ManagedDir>$(ValheimDir)/valheim_Data/Managed</ManagedDir>
-    <BepInExDir>$(ValheimDir)/BepInEx</BepInExDir>
+    <ManagedDir>$(GameDir)/$(DataDir)/Managed</ManagedDir>
+    <BepInExDir>$(GameDir)/BepInEx</BepInExDir>
     <!-- All mods, including the manager, deploy to scripts for hot reload. -->
     <DeployDir>$(BepInExDir)/scripts</DeployDir>
+    <!-- (the newer games' DLLs and .NET Framework disagree on some versions: harmless) -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <!-- Claude Tools' core built for another game gets its own folders, so each game's build stays (bin/Release/Mycopunk/net48) -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ClaudeTools' and '$(Game)' != 'Valheim'">
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <OutputPath>bin/$(Configuration)/$(Game)/</OutputPath>
+    <IntermediateOutputPath>obj/$(Configuration)/$(Game)/</IntermediateOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,10 +57,6 @@
 
     <Reference Include="BepInEx"><HintPath>$(BepInExDir)/core/BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(BepInExDir)/core/0Harmony.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="assembly_valheim"><HintPath>$(ManagedDir)/assembly_valheim.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="assembly_guiutils"><HintPath>$(ManagedDir)/assembly_guiutils.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="assembly_utils"><HintPath>$(ManagedDir)/assembly_utils.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="Splatform"><HintPath>$(ManagedDir)/Splatform.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Unity.TextMeshPro"><HintPath>$(ManagedDir)/Unity.TextMeshPro.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.UI"><HintPath>$(ManagedDir)/UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.UIModule"><HintPath>$(ManagedDir)/UnityEngine.UIModule.dll</HintPath><Private>false</Private></Reference>
@@ -50,6 +77,25 @@
     <Compile Include="$(MSBuildThisFileDirectory)Shared/Migration.cs" Link="Shared/Migration.cs" />
   </ItemGroup>
 
+  <!--
+    The game's own code, for the mods that use it. Claude Tools' core sets UsesGameCode to false: it never references a game, so one core
+    serves every game (the game's adapter, ClaudeTools.Valheim and the like, does what needs the game).
+  -->
+  <ItemGroup Condition="'$(UsesGameCode)' != 'false' and '$(Game)' == 'Valheim'">
+    <Reference Include="assembly_valheim"><HintPath>$(ManagedDir)/assembly_valheim.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="assembly_guiutils"><HintPath>$(ManagedDir)/assembly_guiutils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="assembly_utils"><HintPath>$(ManagedDir)/assembly_utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Splatform"><HintPath>$(ManagedDir)/Splatform.dll</HintPath><Private>false</Private></Reference>
+    <!-- the on-screen notice when an old copy of a mod is installed too (without it, Shared/Migration.cs says so in the log only) -->
+    <Compile Include="$(MSBuildThisFileDirectory)Shared/MigrationNotice.cs" Link="Shared/MigrationNotice.cs" />
+  </ItemGroup>
+  <!-- Mycopunk and Emberville: Assembly-CSharp, publicized (private members usable, as the mycopunk-mods repo builds its mods) -->
+  <ItemGroup Condition="'$(UsesGameCode)' != 'false' and ('$(Game)' == 'Mycopunk' or '$(Game)' == 'Emberville')">
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
+    <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)/Assembly-CSharp.dll</HintPath><Private>false</Private><Publicize>true</Publicize></Reference>
+    <Reference Include="netstandard"><HintPath>$(ManagedDir)/netstandard.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
   <!-- A mod with translations/English.json speaks the player's language: Shared/Translations.cs, and every translations/*.json built
        into the DLL (as "translations/<Language>.json"). -->
   <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/translations/English.json')">
@@ -57,13 +103,15 @@
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/translations/*.json" LogicalName="translations/%(Filename)%(Extension)" />
   </ItemGroup>
 
-  <Target Name="ValidateValheimReferences" BeforeTargets="ResolveReferences" Condition="'$(DesignTimeBuild)' != 'true'">
-    <Error Condition="!Exists('$(ManagedDir)/assembly_valheim.dll')" Text="Valheim assemblies not found. Set VALHEIM_DIR or pass -p:ValheimDir=/path/to/Valheim." />
-    <Error Condition="!Exists('$(BepInExDir)/core/BepInEx.dll')" Text="BepInEx not found in $(ValheimDir). Install the mod loader first." />
+  <Target Name="ValidateGameReferences" BeforeTargets="ResolveReferences" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(Game)' == 'Valheim' and !Exists('$(ManagedDir)/assembly_valheim.dll')" Text="Valheim assemblies not found. Set VALHEIM_DIR or pass -p:ValheimDir=/path/to/Valheim." />
+    <Error Condition="'$(Game)' == 'Mycopunk' and !Exists('$(ManagedDir)/Assembly-CSharp.dll')" Text="Mycopunk assemblies not found. Set MYCOPUNK_DIR or pass -p:MycopunkDir=/path/to/Mycopunk." />
+    <Error Condition="'$(Game)' == 'Emberville' and !Exists('$(ManagedDir)/Assembly-CSharp.dll')" Text="Emberville assemblies not found. Set EMBERVILLE_DIR or pass -p:EmbervilleDir=/path/to/Emberville." />
+    <Error Condition="!Exists('$(BepInExDir)/core/BepInEx.dll')" Text="BepInEx not found in $(GameDir). Install the mod loader first." />
   </Target>
 
   <!-- Set DeployToGame=false for validation or publishing without changing the running game. -->
-  <Target Name="DeployToValheim" AfterTargets="Build" Condition="'$(DeployToGame)' == 'true'">
+  <Target Name="DeployToGameFolder" AfterTargets="Build" Condition="'$(DeployToGame)' == 'true'">
     <MakeDir Directories="$(DeployDir)" />
     <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb" DestinationFolder="$(DeployDir)" />
     <Message Importance="high" Text="Deployed $(MSBuildProjectName) -> $(DeployDir)" />

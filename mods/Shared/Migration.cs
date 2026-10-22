@@ -17,9 +17,10 @@ namespace DHack.Shared
     ///     paid twice, chests counted twice). If the old GUID is loaded too, this copy stands down and says which file to delete.
     ///
     /// Saved game data doesn't depend on the GUID (it lives in ZDOs, item and player data and files under our own names), so it needs nothing.
-    /// Shared source (mods/Shared/Migration.cs), compiled into every mod by mods/Directory.Build.props.
+    /// Shared source (mods/Shared/Migration.cs), compiled into every mod by mods/Directory.Build.props; with Valheim's code, MigrationNotice.cs
+    /// also says it on screen.
     /// </summary>
-    internal static class Migration
+    internal static partial class Migration
     {
         public static void FromOldGuid(BaseUnityPlugin plugin, string oldGuid)
         {
@@ -59,23 +60,10 @@ namespace DHack.Shared
                           $"this one stands down. Delete the old copy, then restart the game.";
             Debug.LogError("[" + name + "] " + text);
             Object.Destroy(plugin); // its OnDestroy undoes everything it did
-            var notice = new GameObject("Migration_TwoCopies_" + name);
-            Object.DontDestroyOnLoad(notice);
-            notice.AddComponent<Notice>().Text = text;
+            ShowNotice(name, text);
         }
 
-        /// <summary>Says it on screen once the player is in a world (nobody reads the log).</summary>
-        private sealed class Notice : MonoBehaviour
-        {
-            public string Text;
-            private float _next;
-
-            private void Update()
-            {
-                if (Time.unscaledTime < _next || Player.m_localPlayer == null || MessageHud.instance == null) return;
-                Player.m_localPlayer.Message(MessageHud.MessageType.Center, Text);
-                _next = Time.unscaledTime + 60f; // again every minute until it's fixed
-            }
-        }
+        /// <summary>Says it on screen too, where the game's code is at hand (MigrationNotice.cs); otherwise the log has it.</summary>
+        static partial void ShowNotice(string name, string text);
     }
 }
