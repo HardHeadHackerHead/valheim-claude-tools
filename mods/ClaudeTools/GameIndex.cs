@@ -10,7 +10,7 @@ using Newtonsoft.Json.Linq;
 namespace ClaudeTools
 {
     /// <summary>
-    /// The game's own code, read from its DLLs (assembly_valheim and friends): every type, field and method with its real signature, who
+    /// The game's own code, read from its DLLs (assembly_valheim and friends, Assembly-CSharp): every type, field and method with its real signature, who
     /// calls each method, who reads and writes each field, and a fingerprint of each method's code. So an assistant can look up what really
     /// exists instead of guessing names, and so a game update can be compared with the version before (which methods changed or vanished,
     /// and which mods patch them).
@@ -44,7 +44,8 @@ namespace ClaudeTools
         public readonly Dictionary<string, List<string>> Readers = new Dictionary<string, List<string>>(StringComparer.Ordinal); // "Type.field" -> methods
         public readonly Dictionary<string, List<string>> Writers = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
-        public static readonly string[] Assemblies = { "assembly_valheim.dll", "assembly_utils.dll", "assembly_guiutils.dll" };
+        /// <summary>The game's DLLs, main one first (its adapter's GameAssemblies; modkit's game profile without the game).</summary>
+        public static string[] Assemblies = { "Assembly-CSharp.dll" };
 
         /// <param name="version">The game's version; null reads it from the game's own code (Version.CurrentVersion).</param>
         public static GameIndex Build(string managedDir, string version = null)
@@ -274,7 +275,7 @@ namespace ClaudeTools
                     ["type"] = $"{type.Kind} {type.Name}" + (type.Base != null ? " : " + type.Base : ""), ["version"] = g.Version,
                     ["fields"] = new JArray(type.Fields.Take(250).Select(f => $"{(f.Static ? "static " : "")}{f.FieldType} {f.Name}")),
                     ["methods"] = new JArray(type.Methods.Take(250).Select(m => m.Signature)),
-                    ["read the code"] = $"ilspycmd -t {type.Name.Replace('.', '+')} \"{Path.Combine(managedDir, "assembly_valheim.dll")}\"",
+                    ["read the code"] = $"ilspycmd -t {type.Name.Replace('.', '+')} \"{Path.Combine(managedDir, Assemblies[0])}\"",
                 };
             List<Method> methods = g.Find(q);
             if (methods.Count > 0)
@@ -289,7 +290,7 @@ namespace ClaudeTools
                     ["calls"] = new JArray(methods.SelectMany(m => m.Calls).Distinct().Where(x => !x.StartsWith("System.") && !x.StartsWith("UnityEngine.Debug")).Take(80)),
                     ["patchedBy (library)"] = new JArray(patched.Select(u => $"{u.Mod} ({u.From}): {u.Describe()}").Distinct().Take(40)),
                     ["note"] = "Mods installed here that patch it: who " + key,
-                    ["read the code"] = $"ilspycmd -t {methods[0].Type.Replace('.', '+')} \"{Path.Combine(managedDir, "assembly_valheim.dll")}\" (then find {methods[0].Name})",
+                    ["read the code"] = $"ilspycmd -t {methods[0].Type.Replace('.', '+')} \"{Path.Combine(managedDir, Assemblies[0])}\" (then find {methods[0].Name})",
                 };
             }
             int dot = q.LastIndexOf('.');

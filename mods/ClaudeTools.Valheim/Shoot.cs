@@ -6,8 +6,9 @@ using System.Reflection;
 using HarmonyLib;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using static ClaudeTools.Plugin;
 
-namespace ClaudeTools
+namespace ClaudeTools.Valheim
 {
     /// <summary>
     /// "shoot": setting up a screenshot of a mod (for its page, or to show a player something): find pieces, stand the player somewhere
@@ -18,7 +19,7 @@ namespace ClaudeTools
     /// cheat rule (single player, the host, or devcommands on), like give and grow: `tp` (moves the player) and `use` (presses E on something
     /// up to 12 m away).
     /// </summary>
-    public partial class Plugin
+    public partial class ValheimPlugin
     {
         private const string ShootUsage =
             "shoot find <name> [radius=120] | near <name> [distance] | pose <name> [zoom] [pitch] | tp x y z yaw [pitch] | look yaw [pitch] | inv | close | map on|off | build | unbuild | hud on|off | " +

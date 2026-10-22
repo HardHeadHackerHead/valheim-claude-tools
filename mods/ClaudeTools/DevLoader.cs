@@ -259,7 +259,7 @@ namespace ClaudeTools
         /// <summary>Whether a mod of this level may be reloaded now, and if not, why.</summary>
         private static string NotNow(string level)
         {
-            bool inWorld = ZNetScene.instance != null;
+            bool inWorld = Adapter.WorldLoaded;
             if (level == "restart") return "it can only be loaded by restarting the game";
             if (level == "menu" && inWorld) return "it registers things the world saves (or changes inventory sizes): reload it at the main menu, or restart";
             return null;
@@ -419,19 +419,13 @@ namespace ClaudeTools
         }
 
         /// <summary>
-        /// A reload, said in the game's chat (on this game only), so the player sees when Claude or a rebuild reloaded a mod; nothing in the
-        /// main menu, where there is no chat. Always in the log as well, where the callers write it.
+        /// A reload, said where the player sees it (Valheim's adapter: the game's chat, on this game only), so the player knows when Claude or
+        /// a rebuild reloaded a mod. Always in the log as well, where the callers write it.
         /// </summary>
         private static void Announce(string text)
         {
-            try
-            {
-                if (Chat.instance == null) return;
-                Chat.instance.AddString("[Claude Tools]", text, Talker.Type.Normal);
-                Traverse.Create(Chat.instance).Field("m_hideTimer").SetValue(0f);   // (shown now, and fades as usual)
-                Chat.instance.m_chatWindow.gameObject.SetActive(true);
-            }
-            catch (Exception e) { Debug.LogWarning("[Claude Tools] couldn't say it in chat: " + e.Message); }
+            try { Adapter.Announce(text); }
+            catch (Exception e) { Debug.LogWarning("[Claude Tools] couldn't say it in the game: " + e.Message); }
         }
 
         private readonly Dictionary<string, float> _settleSince = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
@@ -474,7 +468,7 @@ namespace ClaudeTools
                 output(new JObject
                 {
                     ["loader"] = engine ? "ScriptEngine loads scripts at start (F6 reloads all of them); reload <mod> reloads one" : "Claude Tools' dev loader",
-                    ["inWorld"] = ZNetScene.instance != null, ["mods"] = list,
+                    ["inWorld"] = Adapter.WorldLoaded, ["mods"] = list,
                 });
                 return null;
             });

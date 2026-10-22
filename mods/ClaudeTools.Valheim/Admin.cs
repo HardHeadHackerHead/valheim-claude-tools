@@ -6,8 +6,9 @@ using System.Linq;
 using BepInEx.Configuration;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using static ClaudeTools.Plugin;
 
-namespace ClaudeTools
+namespace ClaudeTools.Valheim
 {
     /// <summary>
     /// The admin commands: the player hosts (or is a server admin) and asks Claude to act on the server: who is on it, bring or send players,
@@ -16,7 +17,7 @@ namespace ClaudeTools
     /// other player needs no mod, and through the server's own tools. Off until the player turns AllowAdmin on. Every action goes into
     /// BepInEx/claude/admin.log, and a player it touches sees who did it.
     /// </summary>
-    public partial class Plugin
+    public partial class ValheimPlugin
     {
         private ConfigEntry<bool> _allowAdmin;
         private static readonly Dictionary<ZDOID, Vector3> TeleportedFrom = new Dictionary<ZDOID, Vector3>();   // for "tp <who> back"
@@ -47,9 +48,10 @@ namespace ClaudeTools
             Builtin("unban", "unban <name>: let a banned player join again. The host only; needs AllowAdmin", (a, output, error) => KickBan("unban", a, output, error));
         }
 
-        private void BindAdmin()
+        /// <summary>Its setting lives in Claude Tools' own file (com.quad.claudetools.cfg, section Requests).</summary>
+        private void BindAdmin(ConfigFile config)
         {
-            _allowAdmin = Config.Bind("Requests", "AllowAdmin", false,
+            _allowAdmin = config.Bind("Requests", "AllowAdmin", false,
                 "Let requests act as the server's admin for you, when you host (or are on the server's admin list): bring and send players, heal them, " +
                 "give them effects, message them, set the world's clock, save, kick and ban. The players it touches see who did it, and every action " +
                 "is written to BepInEx/claude/admin.log.");

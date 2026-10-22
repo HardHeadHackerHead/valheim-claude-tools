@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using BepInEx;
 using BepInEx.Configuration;
 using Newtonsoft.Json.Linq;
@@ -17,13 +18,16 @@ namespace ClaudeTools
     ///
     ///   * The assistant writes a text file into BepInEx/claude/requests, one command per line. While you are in a world (and AllowRequests is
     ///     on), the game carries the commands out and writes the answer to a .done.json file beside it; pictures go to BepInEx/claude/shots.
-    ///   * Built-in commands: pictures (your view, any camera spot, all round a place, straight down), the ground around a spot, your status,
-    ///     inventory, what is nearby and what you are looking at, the mods loaded, their settings, the log, a message on your screen, a map pin.
+    ///   * Built-in commands: pictures (your view, any camera spot, all round a place, straight down, a model on its own), the mods loaded, their
+    ///     settings, the log and its errors, what makes the game stutter, the windows on screen, hot reload of the mods you are making, and the
+    ///     mod-maker commands (the game's real code, the pre-release check, which mods patch what).
+    ///   * This DLL uses no game's code. Each game has a small mod of its own beside it (ClaudeTools.Valheim, ClaudeTools.Mycopunk: a
+    ///     GameAdapter, GameAdapter.cs) that says where the player is, what cheats are, and adds the game's own commands.
     ///   * Other mods add their own commands (BuildOrders adds blueprint commands) and named places to point cameras at; "help" lists them all.
-    ///   * Keys: F12 saves a screenshot for the assistant, Ctrl+F12 surveys the ground where you look.
-    ///   * Clawd ("claude clawd" in the console): a little Claude who follows you and says what Claude is doing (Clawd.cs).
+    ///   * Keys: F12 saves a screenshot for the assistant.
     ///
-    /// The guide for assistants is written to BepInEx/claude/CLAUDE.md, so an assistant started in that folder knows all of this.
+    /// The guide for assistants is written to BepInEx/claude/CLAUDE.md (the game's adapter brings its own), so an assistant started in that
+    /// folder knows all of this.
     /// </summary>
     [BepInPlugin(Guid, Name, Version)]
     public partial class Plugin : BaseUnityPlugin
@@ -33,58 +37,41 @@ namespace ClaudeTools
         public const string Name = "ClaudeTools";
         public const string Version = "1.3.0";
 
-        internal static Plugin Instance;
-        internal static BepInEx.Logging.ManualLogSource Log;
+        public static Plugin Instance { get; private set; }
+        public static BepInEx.Logging.ManualLogSource Log { get; private set; }
 
         private ConfigEntry<bool> _allowRequests, _allowConfigChanges;
         private ConfigEntry<KeyCode> _shotKey;
-        private ConfigEntry<KeyboardShortcut> _surveyKey;
-        private ConfigEntry<float> _surveyRadius;
 
-        internal static string Folder => Path.Combine(Paths.BepInExRootPath, "claude");
-        internal static string RequestDir => Path.Combine(Folder, "requests");
-        internal static string ShotDir => Path.Combine(Folder, "shots");
+        public static string Folder => Path.Combine(Paths.BepInExRootPath, "claude");
+        public static string RequestDir => Path.Combine(Folder, "requests");
+        public static string ShotDir => Path.Combine(Folder, "shots");
 
         private void Awake()
         {
             DHack.Shared.Migration.FromOldGuid(this, OldGuid); // first: before any setting is read
             Instance = this;
             Log = Logger;
-            // its only patches: "ui key" (FakeKeys, in UiCommand.cs) presses keys through the game's input, and Clawd hearing chat
-            // (ClawdHearsChat, in Clawd.cs); undone in OnDestroy
-            _harmony = new HarmonyLib.Harmony(Guid);
-            _harmony.PatchAll(typeof(Plugin).Assembly);
             _allowRequests = Config.Bind("Requests", "AllowRequests", false,
                 "Carry out request files an AI assistant drops into BepInEx/claude/requests (pictures, surveys, what you carry and see, and commands other mods add, " +
                 "such as placing blueprint ghosts). Only files on this computer can do this; nothing moves your character or presses keys. Turn it on while you work with an assistant.");
             _allowConfigChanges = Config.Bind("Requests", "AllowConfigChanges", false,
                 "Also let requests change mods' settings (config set). Reading settings is always allowed.");
             _shotKey = Config.Bind("Keys", "ScreenshotKey", KeyCode.F12, "Save a screenshot (and where you stand and look) into BepInEx/claude/shots for the assistant.");
-            _surveyKey = Config.Bind("Keys", "SurveyKey", new KeyboardShortcut(KeyCode.F12, KeyCode.LeftControl),
-                "Write the ground heights, water and buildings around where you look into BepInEx/claude/_survey.json.");
-            _surveyRadius = Config.Bind("Keys", "SurveyRadius", 24f, new ConfigDescription("How far a survey reaches (metres).", new AcceptableValueRange<float>(4f, 64f)));
-            BindAdmin();
-            BindClawd();
             RegisterBuiltIns();
             BindLibrary();
             BindDev();
-            RegisterConsole();
             Logger.LogInfo($"{Name} {Version} loaded (requests {( _allowRequests.Value ? "on" : "off")}, folder {Folder})");
         }
 
         private void Start() => StartCoroutine(LoadScriptsAtStart());
 
-        private HarmonyLib.Harmony _harmony;
-
         private void OnDestroy()
         {
-            _harmony?.UnpatchSelf();
-            ClawdGone();
             LagStop();
             _stopping = true;
             try { _requestWatcher?.Dispose(); } catch (Exception) { }
             _requestWatcher = null;
-            UnregisterConsole();
             ForgetCaches();
             if (Instance == this) Instance = null;
         }
@@ -99,26 +86,14 @@ namespace ClaudeTools
 
         private void Update()
         {
-            if (!_guideWritten) { _guideWritten = true; WriteGuide(); }
+            // the guide: the game's adapter writes its own when it starts; on our own (none came within a few seconds), the general one
+            if (!_guideWritten && Time.unscaledTime > 5f) { _guideWritten = true; WriteGuide(); }
             WatchScripts();
-            ClawdUpdate();
-            Player player = Player.m_localPlayer;
 
-            if (player != null && !TypingOrMenuOpen())
+            if (Adapter.InWorld && !Adapter.Typing && Keys.Down(_shotKey.Value) && !Keys.Held(KeyCode.LeftControl) && !Keys.Held(KeyCode.RightControl))
             {
-                KeyboardShortcut survey = _surveyKey.Value;
-                bool surveyPressed = survey.MainKey != KeyCode.None && Input.GetKeyDown(survey.MainKey) && survey.Modifiers.All(Input.GetKey);
-                if (surveyPressed)
-                {
-                    Vector3 at = LookPoint(out Vector3 hit) ? hit : player.transform.position;
-                    Survey(at, _surveyRadius.Value, 1f);
-                    player.Message(MessageHud.MessageType.Center, $"Surveyed {(int)_surveyRadius.Value} m around this spot for the assistant");
-                }
-                else if (Input.GetKeyDown(_shotKey.Value) && !Input.GetKey(KeyCode.LeftControl) && !Input.GetKey(KeyCode.RightControl))
-                {
-                    ClawdScreenshot();
-                    StartCoroutine(Screenshot(Path.Combine(ShotDir, Stamp() + ".png"), 0, p => player.Message(MessageHud.MessageType.TopLeft, "Screenshot saved for the assistant")));
-                }
+                Adapter.OnScreenshotKey();
+                StartCoroutine(Screenshot(Path.Combine(ShotDir, Stamp() + ".png"), 0, p => Adapter.Notify("Screenshot saved for the assistant", false)));
             }
 
             if (_requestArrived) { _requestArrived = false; _nextScan = Mathf.Min(_nextScan, Time.unscaledTime + RequestSettle); }
@@ -152,25 +127,17 @@ namespace ClaudeTools
             }
         }
 
-        internal static bool TypingOrMenuOpen() =>
-            (Chat.instance != null && Chat.instance.HasFocus()) || global::Console.IsVisible() || TextInput.IsVisible() || Minimap.InTextInput() || Menu.IsVisible();
+        public static string Stamp() => DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+        public static JArray Vec(Vector3 v) => new JArray(Math.Round(v.x, 2), Math.Round(v.y, 2), Math.Round(v.z, 2));
 
-        internal static string Stamp() => DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
-        internal static JArray Vec(Vector3 v) => new JArray(Math.Round(v.x, 2), Math.Round(v.y, 2), Math.Round(v.z, 2));
+        /// <summary>The point you are looking at (as the game's adapter sees it: terrain, buildings, rocks), up to 60 m away.</summary>
+        public static bool LookPoint(out Vector3 point) => Adapter.LookPoint(out point);
 
-        /// <summary>The point you are looking at (terrain, buildings, rocks), up to 60 m away.</summary>
-        internal static bool LookPoint(out Vector3 point)
-        {
-            point = Vector3.zero;
-            if (GameCamera.instance == null) return false;
-            Transform cam = GameCamera.instance.transform;
-            if (!Physics.Raycast(cam.position, cam.forward, out RaycastHit hit, 60f, LayerMask.GetMask("terrain", "Default", "static_solid", "Default_small", "piece"), QueryTriggerInteraction.Ignore)) return false;
-            point = hit.point;
-            return true;
-        }
-
-        /// <summary>Write CLAUDE.md (the assistants' guide) and the skills into BepInEx/claude, refreshed whenever they change.</summary>
-        private void WriteGuide()
+        /// <summary>
+        /// Write CLAUDE.md (the assistants' guide) and the skills into BepInEx/claude, refreshed whenever they change: this DLL's, and the game
+        /// adapter's (its guide, skills, templates and tools take the place of ours where they have the same name).
+        /// </summary>
+        internal void WriteGuide()
         {
             try
             {
@@ -178,15 +145,21 @@ namespace ClaudeTools
                 Directory.CreateDirectory(ShotDir);
                 // the guide, the skills for mod makers (Claude Code finds .claude/skills in the folder it starts in), modkit (the same
                 // commands on the command line, for when the game isn't running) and modelkit (making and checking 3D models offline)
-                foreach (string name in typeof(Plugin).Assembly.GetManifestResourceNames())
+                var files = new Dictionary<string, KeyValuePair<Assembly, string>>(StringComparer.OrdinalIgnoreCase);
+                foreach (Assembly asm in new[] { typeof(Plugin).Assembly, _adapter?.GetType().Assembly }.Where(x => x != null).Distinct())
+                    foreach (string name in asm.GetManifestResourceNames())
+                    {
+                        string rel = name == "guide/CLAUDE.md" ? "CLAUDE.md"
+                                   : name.StartsWith("skills/") ? ".claude/" + name.Replace('\\', '/')
+                                   : name.StartsWith("modkit/") || name.StartsWith("modelkit/") || name.StartsWith("templates/") ? name.Replace('\\', '/') : null;
+                        if (rel != null) files[rel] = new KeyValuePair<Assembly, string>(asm, name);
+                    }
+                foreach (var file in files)
                 {
-                    string rel = name == "guide/CLAUDE.md" ? "CLAUDE.md"
-                               : name.StartsWith("skills/") ? ".claude/" + name.Replace('\\', '/')
-                               : name.StartsWith("modkit/") || name.StartsWith("modelkit/") || name.StartsWith("templates/") ? name.Replace('\\', '/') : null;
-                    if (rel == null) continue;
+                    string rel = file.Key;
                     try
                     {
-                        using (Stream s = typeof(Plugin).Assembly.GetManifestResourceStream(name))
+                        using (Stream s = file.Value.Key.GetManifestResourceStream(file.Value.Value))
                         {
                             if (s == null) continue;
                             var data = new MemoryStream();

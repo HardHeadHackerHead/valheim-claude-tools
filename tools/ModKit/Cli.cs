@@ -45,6 +45,9 @@ Options: --json (the raw answer), --valheim <folder> (the game), --bepinex <fold
             _managed = Path.Combine(valheim, "valheim_Data", "Managed");
             _library = Path.Combine(_bepinex, "claude", "library");
             _search = new[] { Path.Combine(_bepinex, "core"), _managed, Path.Combine(_bepinex, "plugins") };
+            // Valheim's code and systems (in the game, ClaudeTools.Valheim hands these to Claude Tools)
+            GameIndex.Assemblies = new[] { "assembly_valheim.dll", "assembly_utils.dll", "assembly_guiutils.dll" };
+            UseSystems(ValheimSystems.Systems, ValheimSystems.HighStakes, ValheimSystems.DoesTheJob, ValheimSystems.NotAJob);
             if (a.Length == 0 || a[0] == "help" || a[0] == "--help" || a[0] == "-h") { Console.WriteLine(Usage); return 0; }
             try
             {

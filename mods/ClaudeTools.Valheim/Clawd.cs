@@ -4,8 +4,9 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using static ClaudeTools.Plugin;
 
-namespace ClaudeTools
+namespace ClaudeTools.Valheim
 {
     /// <summary>
     /// Clawd: a little Claude (the orange block crab) who follows the player once summoned ("claude clawd" in the console, F5, or "clawd" in a
@@ -13,17 +14,18 @@ namespace ClaudeTools
     /// rain, a new land, being hurt, standing still a long time) and whatever Claude tells him to ("clawd say ..."). Pet him with the use key.
     /// He is scenery on this game only: no prefab, no ZDO, nothing saved but the Summoned setting, and other players don't see him.
     /// </summary>
-    public partial class Plugin
+    public partial class ValheimPlugin
     {
         private ConfigEntry<bool> _clawdSummoned, _clawdChatty;
         internal static Clawd Buddy;
         internal static bool ClawdChatty => Instance != null && Instance._clawdChatty.Value;
 
-        private void BindClawd()
+        /// <summary>Its settings live in Claude Tools' own file (com.quad.claudetools.cfg, section Clawd).</summary>
+        private void BindClawd(ConfigFile config)
         {
-            _clawdSummoned = Config.Bind("Clawd", "Summoned", false,
+            _clawdSummoned = config.Bind("Clawd", "Summoned", false,
                 "Clawd (a little Claude) follows you and says what Claude is doing. Set by \"claude clawd\" and \"claude clawd bye\" in the console (F5).");
-            _clawdChatty = Config.Bind("Clawd", "Chatty", true,
+            _clawdChatty = config.Bind("Clawd", "Chatty", true,
                 "Clawd also remarks on what happens to you (night, rain, a new land, being hurt) and mutters when you stand still. Off: he only says what Claude is doing.");
         }
 
@@ -87,9 +89,9 @@ namespace ClaudeTools
         }
 
         /// <summary>A request or console command starting: Clawd says what Claude is doing.</summary>
-        internal static void ClawdOnCommand(Command cmd, string[] a)
+        internal static void ClawdOnCommand(string name, string owner, string[] a)
         {
-            if (Buddy != null && cmd.Name != "clawd") Buddy.Narrate(cmd.Name, cmd.Owner, a);
+            if (Buddy != null && name != "clawd") Buddy.Narrate(name, owner, a);
         }
 
         /// <summary>A request finished: <paramref name="ran"/> commands besides clawd's own, the first error if any.</summary>
@@ -110,7 +112,7 @@ namespace ClaudeTools
     {
         private static void Postfix(Talker.Type type, string text)
         {
-            if (Plugin.Buddy != null && type != Talker.Type.Ping && !string.IsNullOrEmpty(text)) Plugin.Buddy.Heard(text);
+            if (ValheimPlugin.Buddy != null && type != Talker.Type.Ping && !string.IsNullOrEmpty(text)) ValheimPlugin.Buddy.Heard(text);
         }
     }
 
@@ -394,7 +396,7 @@ namespace ClaudeTools
         /// <summary>Something happened to the player: say it, unless he spoke a moment ago or Claude is busy (urgent ones always).</summary>
         internal void Remark(Mood mood, string text, bool urgent = false)
         {
-            if (!urgent && (!Plugin.ClawdChatty || _busy || Time.time < _lastRemark + 40f)) return;
+            if (!urgent && (!ValheimPlugin.ClawdChatty || _busy || Time.time < _lastRemark + 40f)) return;
             _lastRemark = Time.time;
             SetMood(mood);
             Say(text);
@@ -403,7 +405,7 @@ namespace ClaudeTools
         /// <summary>His own thoughts about what he finds: now and then, not every time.</summary>
         private void Muse(string text, Mood mood = Mood.Idle, float chance = 0.5f)
         {
-            if (!Plugin.ClawdChatty || _busy || Time.time < _lastMusing + 25f || UnityEngine.Random.value > chance) return;
+            if (!ValheimPlugin.ClawdChatty || _busy || Time.time < _lastMusing + 25f || UnityEngine.Random.value > chance) return;
             _lastMusing = Time.time;
             if (mood != Mood.Idle) SetMood(mood);
             Say(text, false, false);
@@ -419,7 +421,7 @@ namespace ClaudeTools
             _lastNarration = Time.time;
             string arg = a.Length > 1 ? a[1] : "it";
             string text = Doing.TryGetValue(command, out string[] lines) ? string.Format(Pick(lines), arg)
-                        : owner == Plugin.Name ? $"Running {command}..." : $"{owner}: {command}...";
+                        : owner == Plugin.Name || owner == ValheimPlugin.Name ? $"Running {command}..." : $"{owner}: {command}...";
             Say(text);
         }
 
@@ -1135,7 +1137,7 @@ namespace ClaudeTools
             }
             float still = Time.time - _stillSince;
             if (_busy || _mood == Mood.Sleep) return;
-            if (still > 150f && Plugin.ClawdChatty) { SetMood(Mood.Sleep); SetPlan(Plan.Wait, 5f); Say("Zzz...", false, false); }
+            if (still > 150f && ValheimPlugin.ClawdChatty) { SetMood(Mood.Sleep); SetPlan(Plan.Wait, 5f); Say("Zzz...", false, false); }
             else if (still > 40f && Time.time > _nextMusing)
             {
                 _nextMusing = Time.time + UnityEngine.Random.Range(60f, 120f);

@@ -1,23 +1,31 @@
-# Builds Claude Tools (and modkit, which it carries) and writes .\dist: the DLL, its .pdb, the cover and manifest.json, the feed the
-# mod manager (F7) reads. Then commit and push dist/. Set VALHEIM_DIR to the game folder first.
+# Builds Claude Tools for Valheim (its core and ClaudeTools.Valheim, which carries modkit) and writes .\dist: the DLLs, their .pdbs, the
+# cover and manifest.json, the feed the Valheim mod manager (F7) reads. Then commit and push dist/. Set VALHEIM_DIR to the game folder first.
 $root = $PSScriptRoot
 $dist = Join-Path $root "dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
 
 $manifest = @()   # becomes dist\manifest.json, which the in-game mod manager reads
 $GuidSwitchRelease = $false   # (the com.dhack -> com.quad release, 1.2.2, is out: "was" alone tells the manager the old GUID)
+# Claude Tools' game adapters are not mods of their own in the feed: Valheim's ships in Claude Tools' entry (both DLLs, one install), and
+# the other games' (ClaudeTools.Mycopunk...) are not Valheim's.
+$shipsWith = @{ "ClaudeTools" = @("ClaudeTools.Valheim") }
 
 foreach ($proj in Get-ChildItem (Join-Path $root "mods") -Directory) {
     $csproj = Join-Path $proj.FullName "$($proj.Name).csproj"
     if (-not (Test-Path $csproj)) { continue }
+    if ($proj.Name -like "ClaudeTools.*") { continue }   # (an adapter: see $shipsWith)
 
-    Write-Host "Building $($proj.Name)..."
-    dotnet build $csproj -c Release --nologo -v q -p:DeployToGame=false
-    if ($LASTEXITCODE -ne 0) { Write-Error "Build failed for $($proj.Name)"; exit 1 }
-
-    $out = Join-Path $proj.FullName "bin/Release/net48"
-    Copy-Item (Join-Path $out "$($proj.Name).dll") $dist -Force
-    Copy-Item (Join-Path $out "$($proj.Name).pdb") $dist -Force   # ScriptEngine needs the .pdb beside the DLL
+    $files = @()
+    foreach ($part in @($proj.Name) + @($shipsWith[$proj.Name] | Where-Object { $_ })) {
+        $partDir = Join-Path (Join-Path $root "mods") $part
+        Write-Host "Building $part..."
+        dotnet build (Join-Path $partDir "$part.csproj") -c Release --nologo -v q -p:DeployToGame=false
+        if ($LASTEXITCODE -ne 0) { Write-Error "Build failed for $part"; exit 1 }
+        $out = Join-Path $partDir "bin/Release/net48"
+        Copy-Item (Join-Path $out "$part.dll") $dist -Force
+        Copy-Item (Join-Path $out "$part.pdb") $dist -Force   # ScriptEngine needs the .pdb beside the DLL
+        $files += @("$part.dll", "$part.pdb")
+    }
 
     # Read guid/name/version from the mod's [BepInPlugin] constants, description from DESCRIPTION.txt (optional).
     $src = (Get-ChildItem $proj.FullName -Filter *.cs -Recurse | Where-Object { $_.FullName -notmatch '[\\/](obj|bin)[\\/]' } |
@@ -66,7 +74,7 @@ foreach ($proj in Get-ChildItem (Join-Path $root "mods") -Directory) {
 
     $manifest += [ordered]@{
         guid = $guid; name = $name; version = $ver; description = $desc; notes = $notes; restart = $restart; cover = $cover
-        files = @("$($proj.Name).dll", "$($proj.Name).pdb")
+        files = $files
         was = @($oldGuid | Where-Object { $_ })
     }
 }

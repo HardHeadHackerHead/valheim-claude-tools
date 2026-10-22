@@ -14,8 +14,9 @@ using UnityEngine.Networking;
 namespace ClaudeTools
 {
     /// <summary>
-    /// The mod library: the most-downloaded Valheim mods on Thunderstore, kept in BepInEx/claude/library so you (and an assistant) can see
-    /// what they change in the game before writing a mod that changes the same things. Off until you switch it on.
+    /// The mod library: the most-downloaded mods for the game on Thunderstore (its community, from the game's adapter), kept in
+    /// BepInEx/claude/library so you (and an assistant) can see what they change in the game before writing a mod that changes the same
+    /// things. Off until you switch it on.
     ///
     ///   * Only their DLLs are fetched, straight out of each zip (byte ranges, not the whole download), then their embedded assets are
     ///     stripped so a 180 MB content mod keeps a code-only DLL of under a megabyte. These DLLs are never loaded or run: they live outside
@@ -32,8 +33,11 @@ namespace ClaudeTools
         internal static string LibraryDir => Path.Combine(Folder, "library");
         internal static string LibraryMods => Path.Combine(LibraryDir, "mods");
 
-        private const string Listing = "https://thunderstore.io/api/cyberstorm/listing/valheim/?ordering=most-downloaded&page=";
+        private static string Listing => $"https://thunderstore.io/api/cyberstorm/listing/{Adapter.Thunderstore}/?ordering=most-downloaded&page=";
         private const string PackageApi = "https://thunderstore.io/api/experimental/package/";
+
+        /// <summary>A mod's page on Thunderstore.</summary>
+        internal static string PageOf(string ns, string name) => $"https://thunderstore.io/c/{Adapter.Thunderstore}/p/{ns}/{name}/";
 
         internal class LibraryState
         {
@@ -51,7 +55,7 @@ namespace ClaudeTools
         private void BindLibrary()
         {
             _libraryOn = Config.Bind("Library", "DownloadMods", false,
-                "Keep a library of the most-downloaded Valheim mods on Thunderstore in BepInEx/claude/library: what each one patches in the game, " +
+                "Keep a library of the game's most-downloaded mods on Thunderstore in BepInEx/claude/library: what each one patches in the game, " +
                 "and a code-only copy of its DLL (never loaded or run). For seeing which mods change the same things as yours. Downloads only the DLLs.");
             _libraryTop = Config.Bind("Library", "TopMods", 10, new ConfigDescription(
                 "How many of the most-downloaded mods to keep (mod managers, BepInEx and modpacks don't count).", new AcceptableValueRange<int>(1, 1000)));
@@ -59,8 +63,8 @@ namespace ClaudeTools
                 "Check for new versions and a new top list after this many days.", new AcceptableValueRange<int>(1, 90)));
             _libraryExtra = Config.Bind("Library", "AlsoKeep", "",
                 "More mods to keep whatever their rank, as Namespace-Name separated by commas (e.g. Azumatt-AzuCraftyBoxes, Vapok-AdventureBackpacks).");
-            _librarySkip = Config.Bind("Library", "Skip", "ebkr-r2modman, denikson-BepInExPack_Valheim, Kesomannen-GaleModManager",
-                "Packages that are not mods, left out of the top list (Namespace-Name, separated by commas).");
+            _librarySkip = Config.Bind("Library", "Skip", "ebkr-r2modman, Kesomannen-GaleModManager",
+                "Packages that are not mods, left out of the top list (Namespace-Name, separated by commas; the game's BepInEx pack always is).");
             _libraryOn.SettingChanged += (s, e) => { if (_libraryOn.Value) StartLibraryUpdate(false); };
             _libraryTop.SettingChanged += (s, e) => { if (_libraryOn.Value) StartLibraryUpdate(false); };
             StartCoroutine(LibraryWhenDue());
@@ -87,6 +91,7 @@ namespace ClaudeTools
         internal bool StartLibraryUpdate(bool force, bool onlyRequested = false)
         {
             if (Library.Running) return false;
+            if (Adapter.Thunderstore == null) { Library.LastError = $"{Adapter.Game} has no Thunderstore community known to Claude Tools (its adapter says which)"; return false; }
             if (!force)
             {
                 JObject index = ReadJson(Path.Combine(LibraryDir, "index.json"));
@@ -145,6 +150,7 @@ namespace ClaudeTools
             {
                 Directory.CreateDirectory(LibraryMods);
                 var skip = new HashSet<string>(Names(_librarySkip.Value), StringComparer.OrdinalIgnoreCase);
+                if (Adapter.BepInExPack != null) skip.Add(Adapter.BepInExPack);
                 int top = _libraryTop.Value;
 
                 // 1. the top list, 20 a page, most downloaded first
@@ -190,7 +196,7 @@ namespace ClaudeTools
                     {
                         // (Thunderstore's package API reports -1 downloads: its search listing has the real count)
                         string found = null;
-                        yield return GetText("https://thunderstore.io/api/cyberstorm/listing/valheim/?deprecated=true&q=" + Uri.EscapeDataString(p.Name), (t, e) => found = t);
+                        yield return GetText($"https://thunderstore.io/api/cyberstorm/listing/{Adapter.Thunderstore}/?deprecated=true&q=" + Uri.EscapeDataString(p.Name), (t, e) => found = t);
                         JToken hit = found == null ? null : (TryParse(found)?["results"] as JArray)?.FirstOrDefault(r =>
                             string.Equals((string)r["namespace"], p.Namespace, StringComparison.OrdinalIgnoreCase) && string.Equals((string)r["name"], p.Name, StringComparison.OrdinalIgnoreCase));
                         p.Downloads = Math.Max(0, (long?)hit?["download_count"] ?? 0);
@@ -279,6 +285,7 @@ namespace ClaudeTools
         {
             string dir = Compat.Inside(LibraryMods, p.Full), fresh = dir + ".new";
             string[] search = SearchDirs();
+            string page = PageOf(p.Namespace, p.Name);
             string failed = null;
             var worker = new Thread(() =>
             {
@@ -303,7 +310,7 @@ namespace ClaudeTools
                     var result = new JObject
                     {
                         ["package"] = p.Full, ["version"] = p.Version, ["rank"] = p.Rank, ["downloads"] = p.Downloads,
-                        ["page"] = $"https://thunderstore.io/c/valheim/p/{p.Namespace}/{p.Name}/", ["scanned"] = DateTime.Now.ToString("s"),
+                        ["page"] = page, ["scanned"] = DateTime.Now.ToString("s"),
                         ["dlls"] = scans,
                     };
                     File.WriteAllText(Path.Combine(fresh, "scan.json"), result.ToString());
@@ -357,13 +364,13 @@ namespace ClaudeTools
 
         private static string GameVersion()
         {
-            try { return global::Version.GetVersionString(); } catch (Exception) { return ""; }
+            try { return Adapter.GameVersion; } catch (Exception) { return ""; }
         }
 
         /// <summary>Every library mod: the downloaded ones' scan.json, then the shipped list's mods that were not downloaded.</summary>
         internal static IEnumerable<JObject> LibraryScans() => Compat.LibraryScans(LibraryMods, Shipped());
 
-        // ---- the patch map shipped inside ClaudeTools (made by tools/PatchMap from the top Thunderstore mods: facts only, no code) ----
+        // ---- the patch map shipped with the game's adapter (made by tools/PatchMap from the top Thunderstore mods: facts only, no code) ----
 
         private static List<JObject> _shipped;
         internal static string ShippedBuilt = "";
@@ -373,7 +380,7 @@ namespace ClaudeTools
             if (_shipped != null) return _shipped;
             try
             {
-                using (Stream s = typeof(Plugin).Assembly.GetManifestResourceStream("library/shipped.json.gz"))
+                using (Stream s = Adapter.GetType().Assembly.GetManifestResourceStream("library/shipped.json.gz"))
                     _shipped = Compat.ReadShipped(s, out ShippedBuilt);
             }
             catch (Exception e) { _shipped = new List<JObject>(); Log?.LogWarning("Mod library: could not read the shipped patch map: " + e.Message); }

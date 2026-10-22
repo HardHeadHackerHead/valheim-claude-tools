@@ -84,7 +84,8 @@ namespace ClaudeTools
                     if (p.PatchMethod?.DeclaringType != null && mods.TryGetValue(p.PatchMethod.DeclaringType.Assembly, out string mod))
                         Add(p.PatchMethod, mod, $"{p.PatchMethod.DeclaringType.Name}.{p.PatchMethod.Name} (patch on {patched.DeclaringType?.Name}.{patched.Name})");
             }
-            if (game) AddTypes(typeof(Player).Assembly, "game");
+            Assembly gameCode = GameAssembly();
+            if (game && gameCode != null) AddTypes(gameCode, "game");
             // a closer look: every method of the mods named (nested: an Update's time includes what it calls), and game methods by name
             var deep = new HashSet<string>((o.TryGetValue("mod", out string dm) ? dm : "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
             foreach (var m in mods.Where(x => deep.Contains(x.Value)))
@@ -284,7 +285,14 @@ namespace ClaudeTools
                 .Where(x => (int)x["oldObjectsAlive"] > 0 || (int)x["oldCopies"] > 3));
         }
 
-        private static IEnumerable<Type> SafeTypes(Assembly asm)
+        /// <summary>The game's main DLL, loaded (the first of its adapter's GameAssemblies: assembly_valheim, Assembly-CSharp).</summary>
+        private static Assembly GameAssembly()
+        {
+            string main = Path.GetFileNameWithoutExtension(Adapter.GameAssemblies.FirstOrDefault() ?? "");
+            return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(x => !x.IsDynamic && x.GetName().Name == main);
+        }
+
+        public static IEnumerable<Type> SafeTypes(Assembly asm)
         {
             try { return asm.GetTypes(); }
             catch (ReflectionTypeLoadException e) { return e.Types.Where(t => t != null); }

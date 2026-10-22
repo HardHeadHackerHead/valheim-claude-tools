@@ -8,11 +8,11 @@ using UnityEngine;
 
 namespace ClaudeTools
 {
-    /// <summary>Pictures and the lie of the land: your own view, a separate camera anywhere (your character does not move), and ground surveys.</summary>
+    /// <summary>Pictures: your own view, and a separate camera anywhere (your character does not move). The ground surveys are the game's (its adapter).</summary>
     public partial class Plugin
     {
         /// <summary>What you see, saved as a PNG at the end of this frame (with a .json beside it saying where you were).</summary>
-        internal IEnumerator Screenshot(string path, int maxWidth, Action<string> done)
+        public IEnumerator Screenshot(string path, int maxWidth, Action<string> done)
         {
             yield return new WaitForEndOfFrame();
             string saved = null;
@@ -79,27 +79,28 @@ namespace ClaudeTools
 
         private static void WriteShotInfo(string png)
         {
-            Player player = Player.m_localPlayer;
+            Transform player = Adapter.Player;
             if (player == null) return;
-            Transform cam = GameCamera.instance != null ? GameCamera.instance.transform : null;
+            Transform cam = Adapter.Camera != null ? Adapter.Camera.transform : null;
             var info = new JObject
             {
                 ["time"] = DateTime.Now.ToString("s"),
-                ["world"] = ZNet.instance != null ? ZNet.instance.GetWorldName() : "",
-                ["player"] = Vec(player.transform.position),
-                ["playerYaw"] = Math.Round(player.transform.eulerAngles.y, 1),
+                ["world"] = Adapter.WorldName,
+                ["player"] = Vec(player.position),
+                ["playerYaw"] = Math.Round(player.eulerAngles.y, 1),
                 ["camera"] = cam != null ? Vec(cam.position) : null,
                 ["cameraYaw"] = cam != null ? Math.Round(cam.eulerAngles.y, 1) : 0,
                 ["cameraPitch"] = cam != null ? Math.Round(cam.eulerAngles.x, 1) : 0,
             };
             if (LookPoint(out Vector3 hit)) info["lookingAt"] = Vec(hit);
+            Adapter.ShotInfo(info);
             File.WriteAllText(Path.ChangeExtension(png, ".json"), info.ToString());
         }
 
         /// <summary>A picture from a separate camera at any spot (the character does not move). Only the world near the player is loaded.</summary>
-        internal string RenderView(Vector3 position, Quaternion rotation, int width, int height, float fov, string path, bool orthographic = false, float orthoSize = 20f)
+        public static string RenderView(Vector3 position, Quaternion rotation, int width, int height, float fov, string path, bool orthographic = false, float orthoSize = 20f)
         {
-            Camera main = GameCamera.instance != null ? GameCamera.instance.GetComponent<Camera>() : Camera.main;
+            Camera main = Adapter.Camera != null ? Adapter.Camera : Camera.main;
             var go = new GameObject("ClaudeViewCamera");
             RenderTexture rt = RenderTexture.GetTemporary(Mathf.Clamp(width, 64, 4096), Mathf.Clamp(height, 64, 4096), 24, RenderTextureFormat.ARGB32);
             try
@@ -114,9 +115,9 @@ namespace ClaudeTools
                 cam.nearClipPlane = 0.2f;
                 cam.farClipPlane = Mathf.Max(cam.farClipPlane, 600f);
                 cam.targetTexture = rt;
-                bool clawd = Buddy != null && Buddy.Hide(true);   // (Claude's pictures are of the world, not of Clawd)
+                bool hidden = Adapter.HideForPictures(true);   // (Claude's pictures are of the world, not of Valheim's Clawd)
                 cam.Render();
-                if (clawd) Buddy.Hide(false);
+                if (hidden) Adapter.HideForPictures(false);
                 Texture2D tex = ReadBack(rt);
                 string saved = SavePng(tex, path);
                 Destroy(tex);
@@ -127,61 +128,6 @@ namespace ClaudeTools
                 RenderTexture.ReleaseTemporary(rt);
                 Destroy(go);
             }
-        }
-
-        /// <summary>Ground heights on a grid around a point, the water level, the biome and the buildings there (BepInEx/claude/_survey.json).</summary>
-        internal static string Survey(Vector3 centre, float radius, float step)
-        {
-            ZoneSystem zone = ZoneSystem.instance;
-            float baseY = zone.GetGroundHeight(centre);
-            int n = Mathf.Clamp(Mathf.RoundToInt(radius / step), 1, 128);
-            var ground = new JArray();
-            var solid = new JArray();
-            float lowest = float.MaxValue, highest = float.MinValue;
-            for (int iz = -n; iz <= n; iz++)
-            {
-                var gRow = new JArray();
-                var sRow = new JArray();
-                for (int ix = -n; ix <= n; ix++)
-                {
-                    var p = new Vector3(centre.x + ix * step, 0f, centre.z + iz * step);
-                    float g = zone.GetGroundHeight(p) - baseY;
-                    float s = zone.GetSolidHeight(p, out float sh, 1000) ? sh - baseY : g;
-                    gRow.Add(Math.Round(g, 2));
-                    sRow.Add(Math.Round(s, 2));
-                    lowest = Mathf.Min(lowest, g); highest = Mathf.Max(highest, g);
-                }
-                ground.Add(gRow);
-                solid.Add(sRow);
-            }
-
-            var pieces = new List<Piece>();
-            Piece.GetAllPiecesInRadius(centre, radius, pieces);
-            var existing = new JArray();
-            foreach (Piece pc in pieces.Take(2000))
-            {
-                Vector3 local = pc.transform.position - new Vector3(centre.x, baseY, centre.z);
-                existing.Add(new JObject { ["p"] = Utils.GetPrefabName(pc.gameObject), ["x"] = Math.Round(local.x, 2), ["y"] = Math.Round(local.y, 2), ["z"] = Math.Round(local.z, 2), ["ry"] = Math.Round(pc.transform.eulerAngles.y, 1) });
-            }
-
-            Player player = Player.m_localPlayer;
-            var doc = new JObject
-            {
-                ["note"] = "Heights are metres above the ground at the centre. Rows run from -z (south) to +z, columns from -x (west) to +x, one every 'step' metres. 'solid' includes rocks, trees and buildings; 'ground' is the terrain only. Pieces are relative to the centre at its ground height.",
-                ["time"] = DateTime.Now.ToString("s"),
-                ["world"] = ZNet.instance != null ? ZNet.instance.GetWorldName() : "",
-                ["centre"] = Vec(new Vector3(centre.x, baseY, centre.z)),
-                ["playerYaw"] = player != null ? Math.Round(player.transform.eulerAngles.y, 1) : 0,
-                ["biome"] = WorldGenerator.instance != null ? WorldGenerator.instance.GetBiome(centre).ToString() : "",
-                ["radius"] = radius, ["step"] = step,
-                ["waterAboveCentre"] = Math.Round(zone.m_waterLevel - baseY, 2),
-                ["lowest"] = Math.Round(lowest, 2), ["highest"] = Math.Round(highest, 2),
-                ["ground"] = ground, ["solid"] = solid, ["pieces"] = existing,
-            };
-            Directory.CreateDirectory(Folder);
-            string path = Path.Combine(Folder, "_survey.json");
-            File.WriteAllText(path, doc.ToString(Newtonsoft.Json.Formatting.None));
-            return path;
         }
 
         private void RegisterPictureCommands()
@@ -218,13 +164,6 @@ namespace ClaudeTools
                 if (!Frame(a.Length > 1 ? a[1] : "look", out Vector3 origin, out float yaw, out string err)) { error(err); return null; }
                 float size = F(a, 2, 30);
                 output(new JObject { ["top"] = RenderView(origin + Vector3.up * 80f, Quaternion.Euler(90f, yaw, 0f), I(a, 3, 1024), I(a, 3, 1024), 50f, Path.Combine(ShotDir, Stamp() + "-top.png"), true, size / 2f) });
-                return null;
-            });
-
-            Builtin("survey", "survey [radius] [step] [place]: ground heights, water, biome and buildings around a place (default: where the player looks) into _survey.json", (a, output, error) =>
-            {
-                if (!Frame(a.Length > 3 ? a[3] : "look", out Vector3 at, out float _, out string err)) { error(err); return null; }
-                output(new JObject { ["survey"] = Survey(at, Mathf.Clamp(F(a, 1, _surveyRadius.Value), 2f, 128f), Mathf.Max(0.25f, F(a, 2, 1f))) });
                 return null;
             });
         }

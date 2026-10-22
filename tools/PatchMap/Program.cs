@@ -11,7 +11,7 @@ using Newtonsoft.Json.Linq;
 namespace ClaudeTools
 {
     /// <summary>
-    /// Makes mods/ClaudeTools/Shipped/patchmap.json.gz: for the top N Valheim mods on Thunderstore, their plugins and every patch (which game
+    /// Makes mods/ClaudeTools.Valheim/Shipped/patchmap.json.gz: for the top N Valheim mods on Thunderstore, their plugins and every patch (which game
     /// method, how), as ClaudeTools' own library would list them. Only facts about the mods go in it, none of their code. The mods' code-only
     /// DLLs are kept in tools/PatchMap/cache (not committed), so a rebuild only downloads mods that have a new version.
     /// </summary>
@@ -25,7 +25,7 @@ namespace ClaudeTools
             bool rescan = args.Contains("--rescan"); // scan the cached DLLs again (after the scanner improves) instead of reusing their scan.json
             string root = FindRoot();
             string cache = Path.Combine(root, "tools", "PatchMap", "cache");
-            string output = Path.Combine(root, "mods", "ClaudeTools", "Shipped", "patchmap.json.gz");
+            string output = Path.Combine(root, "mods", "ClaudeTools.Valheim", "Shipped", "patchmap.json.gz");
             string valheim = Environment.GetEnvironmentVariable("VALHEIM_DIR") ?? "D:/SteamLibrary/steamapps/common/Valheim";
             string[] search = { Path.Combine(valheim, "BepInEx", "core"), Path.Combine(valheim, "valheim_Data", "Managed"), Path.Combine(valheim, "BepInEx", "plugins") };
 

@@ -1,7 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Claude Tools' core: the request mailbox, its commands for any Unity game, the dev loader and the mod-maker commands. It uses no game's
+    code (UsesGameCode false), so the same source serves every game; each game's adapter (ClaudeTools.Valheim, ClaudeTools.Mycopunk) builds
+    it against that game's Unity (-p:Game=Mycopunk, see mods/Directory.Build.props) and carries the game's guide, skills and tools.
+  -->
   <PropertyGroup>
     <AssemblyName>ClaudeTools</AssemblyName>
     <RootNamespace>ClaudeTools</RootNamespace>
+    <UsesGameCode>false</UsesGameCode>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="netstandard"><HintPath>$(ManagedDir)/netstandard.dll</HintPath><Private>false</Private></Reference>
@@ -11,54 +17,7 @@
     <Reference Include="UnityEngine.ParticleSystemModule"><HintPath>$(ManagedDir)/UnityEngine.ParticleSystemModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <!-- The guide for AI assistants; the mod writes it to BepInEx/claude/CLAUDE.md. -->
-    <EmbeddedResource Include="CLAUDE.md" LogicalName="guide/CLAUDE.md" />
-    <!-- modelkit: design, preview and check 3D models offline (the same tools BuildOrders ships for blueprints); written to BepInEx/claude/modelkit. -->
-    <EmbeddedResource Include="../../tools/modelkit/README.md" LogicalName="modelkit/README.md" />
-    <EmbeddedResource Include="../../tools/modelkit/modelkit.py" LogicalName="modelkit/modelkit.py" />
-    <EmbeddedResource Include="../../tools/modelkit/bountyboard.py" LogicalName="modelkit/bountyboard.py" />
-    <EmbeddedResource Include="../../tools/modelkit/csharp/ModelBuilder.cs" LogicalName="modelkit/ModelBuilder.cs" />
-    <EmbeddedResource Include="../../tools/modelkit/csharp/Look.cs" LogicalName="modelkit/Look.cs" />
-    <EmbeddedResource Include="../../tools/blueprints/tools/blueprint.py" LogicalName="modelkit/blueprint.py" />
-    <EmbeddedResource Include="../../tools/blueprints/tools/preview.py" LogicalName="modelkit/preview.py" />
-    <EmbeddedResource Include="../../tools/blueprints/tools/extract_pieces.py" LogicalName="modelkit/extract_pieces.py" />
-    <EmbeddedResource Include="../../tools/blueprints/tools/extract_meshes.py" LogicalName="modelkit/extract_meshes.py" />
-    <!-- Claude Code skills for mod makers; the mod writes them to BepInEx/claude/.claude/skills. -->
-    <EmbeddedResource Include="../../skills/*/SKILL.md" LogicalName="skills/%(RecursiveDir)SKILL.md" />
-    <!-- Code for mod makers to copy into their own mods (not part of ClaudeTools); written to BepInEx/claude/templates. -->
-    <EmbeddedResource Include="../../templates/README.md" LogicalName="templates/README.md" />
-    <EmbeddedResource Include="../../templates/ContainerAccess.cs" LogicalName="templates/ContainerAccess.cs" />
-    <EmbeddedResource Include="../../templates/GameUi.cs" LogicalName="templates/GameUi.cs" />
-    <EmbeddedResource Include="../../templates/PieceReload.cs" LogicalName="templates/PieceReload.cs" />
-    <EmbeddedResource Include="../../templates/ItemReload.cs" LogicalName="templates/ItemReload.cs" />
-    <EmbeddedResource Include="../../templates/Translations.cs" LogicalName="templates/Translations.cs" />
-    <EmbeddedResource Include="../../templates/ServerSettings.cs" LogicalName="templates/ServerSettings.cs" />
-    <EmbeddedResource Include="../../templates/Costs.cs" LogicalName="templates/Costs.cs" />
-    <EmbeddedResource Include="../../templates/Registry.cs" LogicalName="templates/Registry.cs" />
-    <EmbeddedResource Include="../../templates/Content.cs" LogicalName="templates/Content.cs" />
-    <EmbeddedResource Include="../../templates/Skill.cs" LogicalName="templates/Skill.cs" />
-    <EmbeddedResource Include="../../templates/Icon.cs" LogicalName="templates/Icon.cs" />
-    <EmbeddedResource Include="../../templates/StatusEffects.cs" LogicalName="templates/StatusEffects.cs" />
-    <EmbeddedResource Include="../../templates/SnapPoints.cs" LogicalName="templates/SnapPoints.cs" />
-    <!-- A whole mod project to start from (also template/ in the mod manager repo: tools/sync_project_template.py keeps that copy the same). -->
-    <EmbeddedResource Include="../../templates/project/**" Exclude="../../templates/project/**/bin/**;../../templates/project/**/obj/**"
-                      LogicalName="templates/project/%(RecursiveDir)%(Filename)%(Extension)" />
-    <!-- The patch map of the top Thunderstore mods (facts only, no code), made by tools/PatchMap. -->
-    <EmbeddedResource Include="Shipped/patchmap.json.gz" LogicalName="library/shipped.json.gz" Condition="Exists('Shipped/patchmap.json.gz')" />
+    <!-- The guide for AI assistants in a game whose adapter brings none; the mod writes it to BepInEx/claude/CLAUDE.md. -->
+    <EmbeddedResource Include="GUIDE.md" LogicalName="guide/CLAUDE.md" />
   </ItemGroup>
-  <!--
-    modkit (tools/ModKit): the same commands on the command line, without the game. Built here (both: modkit.exe for Windows, modkit.dll for
-    dotnet on Linux and Mac) and carried inside ClaudeTools, which writes them to BepInEx/claude/modkit.
-  -->
-  <Target Name="EmbedModKit" AfterTargets="ResolveProjectReferences" BeforeTargets="PrepareResources" Condition="'$(DesignTimeBuild)' != 'true'">
-    <!-- restore first (a fresh clone has no packages yet), in its own evaluation, as NuGet asks for a restore inside a build -->
-    <MSBuild Projects="../../tools/ModKit/ModKit.csproj" Targets="Restore" Properties="Configuration=$(Configuration);ValheimDir=$(ValheimDir);MSBuildRestoreSessionId=$([System.Guid]::NewGuid())" />
-    <MSBuild Projects="../../tools/ModKit/ModKit.csproj" Targets="Build" Properties="Configuration=$(Configuration);ValheimDir=$(ValheimDir)" />
-    <ItemGroup>
-      <EmbeddedResource Include="../../tools/ModKit/bin/$(Configuration)/net48/modkit.exe" LogicalName="modkit/modkit.exe" />
-      <EmbeddedResource Include="../../tools/ModKit/bin/$(Configuration)/net48/modkit.exe.config" LogicalName="modkit/modkit.exe.config" />
-      <EmbeddedResource Include="../../tools/ModKit/bin/$(Configuration)/net8.0/modkit.dll" LogicalName="modkit/modkit.dll" />
-      <EmbeddedResource Include="../../tools/ModKit/bin/$(Configuration)/net8.0/modkit.runtimeconfig.json" LogicalName="modkit/modkit.runtimeconfig.json" />
-    </ItemGroup>
-  </Target>
 </Project>

@@ -7,8 +7,9 @@ using HarmonyLib;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using static ClaudeTools.Plugin;
 
-namespace ClaudeTools
+namespace ClaudeTools.Valheim
 {
     /// <summary>
     /// Shaping a test site: "clear" takes things away around a spot (trees, rocks, plants, built pieces, items, creatures, or all of it), and
@@ -17,7 +18,7 @@ namespace ClaudeTools
     /// game allows ground to move (8 m from where the world made it). Only what is loaded (about 60 m around the player) can be changed.
     /// Both only where cheats are allowed.
     /// </summary>
-    public partial class Plugin
+    public partial class ValheimPlugin
     {
         private const float GroundLimit = 8f;   // the most the game lets ground move from where the world made it
 

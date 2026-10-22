@@ -13,37 +13,27 @@ namespace ClaudeTools
     /// <summary>
     /// Looking at things on their own: "render" photographs any piece, item or creature (by its prefab name) built out of sight with its real
     /// materials, under its own camera and light, so a model can be checked and improved without placing it (and the build menu's copy is the
-    /// one a hot reload updates). "inspect" lists what an object is made of. "errors" and "waitfor" help the build-and-look loop.
+    /// one a hot reload updates). "inspect" lists what an object is made of. "errors" and "waitfor" help the build-and-look loop. (Valheim's
+    /// building checks, colliders, support and comfort, are in ClaudeTools.Valheim.)
     /// </summary>
     public partial class Plugin
     {
         private static readonly Vector3 StageSpot = new Vector3(0f, 4300f, 0f);   // far above the middle of the world: nothing else there
 
-        private static GameObject FindPrefab(string name)
-        {
-            GameObject p = ZNetScene.instance != null ? ZNetScene.instance.GetPrefab(name) : null;
-            if (p == null && ObjectDB.instance != null) p = ObjectDB.instance.GetItemPrefab(name);
-            if (p == null && ObjectDB.instance != null)   // pieces only on a tool's build list (terrain tools and the like)
-                foreach (GameObject item in ObjectDB.instance.m_items)
-                {
-                    PieceTable table = item != null ? item.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_buildPieces : null;
-                    GameObject found = table?.m_pieces.FirstOrDefault(x => x != null && x.name == name);
-                    if (found != null) return found;
-                }
-            return p;
-        }
+        /// <summary>A prefab by its name, as the game's adapter finds it (Valheim: ZNetScene, ObjectDB, tools' build lists).</summary>
+        public static GameObject FindPrefab(string name) => Adapter.FindPrefab(name);
 
-        private static Dictionary<string, string> Options(string[] a, int from)
+        public static Dictionary<string, string> Options(string[] a, int from)
         {
             var o = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (string w in a.Skip(from)) { int eq = w.IndexOf('='); if (eq > 0) o[w.Substring(0, eq)] = w.Substring(eq + 1); }
             return o;
         }
 
-        private static float Opt(Dictionary<string, string> o, string key, float fallback) =>
+        public static float Opt(Dictionary<string, string> o, string key, float fallback) =>
             o.TryGetValue(key, out string v) && float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out float f) ? f : fallback;
 
-        private static bool OptVec(Dictionary<string, string> o, string key, out Vector3 v)
+        public static bool OptVec(Dictionary<string, string> o, string key, out Vector3 v)
         {
             v = Vector3.zero;
             if (!o.TryGetValue(key, out string s)) return false;
@@ -103,121 +93,6 @@ namespace ClaudeTools
                 return null;
             });
 
-            Builtin("colliders", "colliders <prefab> [prefab...]: each piece's solid colliders in its own frame (as the game's support check sees them: box centre, rotation, size; other shapes as bounds) and its support settings (centre of mass, material, whether it holds others up)", (a, output, error) =>
-            {
-                if (a.Length < 2) { error("colliders <prefab> [prefab...]"); return null; }
-                var all = new JObject();
-                foreach (string name in a.Skip(1))
-                {
-                    GameObject prefab = FindPrefab(name);
-                    if (prefab == null) { all[name] = "no such prefab"; continue; }
-                    Transform root = prefab.transform;
-                    var list = new JArray();
-                    foreach (Collider col in prefab.GetComponentsInChildren<Collider>(true))
-                    {
-                        if (col.isTrigger || col.attachedRigidbody != null) continue;
-                        Transform t = col.transform;
-                        Matrix4x4 toRoot = root.worldToLocalMatrix * t.localToWorldMatrix;
-                        Quaternion rot = Quaternion.Inverse(root.rotation) * t.rotation;
-                        Vector3 scale = new Vector3(toRoot.GetColumn(0).magnitude, toRoot.GetColumn(1).magnitude, toRoot.GetColumn(2).magnitude);
-                        var c = new JObject { ["path"] = t.name, ["layer"] = LayerMask.LayerToName(t.gameObject.layer) };
-                        if (col is BoxCollider bc)
-                        {
-                            c["type"] = "box";
-                            c["centre"] = Vec(toRoot.MultiplyPoint3x4(bc.center));
-                            c["rot"] = new JArray(rot.x, rot.y, rot.z, rot.w);
-                            c["size"] = Vec(Vector3.Scale(scale, bc.size));
-                        }
-                        else
-                        {
-                            Bounds lb = col is MeshCollider mc && mc.sharedMesh != null ? mc.sharedMesh.bounds : new Bounds(Vector3.zero, Vector3.zero);
-                            if (col is CapsuleCollider cc) lb = new Bounds(cc.center, cc.direction == 0 ? new Vector3(cc.height, cc.radius * 2, cc.radius * 2) : cc.direction == 1 ? new Vector3(cc.radius * 2, cc.height, cc.radius * 2) : new Vector3(cc.radius * 2, cc.radius * 2, cc.height));
-                            if (col is SphereCollider sc) lb = new Bounds(sc.center, Vector3.one * sc.radius * 2);
-                            c["type"] = col is MeshCollider m2 ? (m2.convex ? "mesh-convex" : "mesh") : col.GetType().Name;
-                            c["centre"] = Vec(toRoot.MultiplyPoint3x4(lb.center));      // its own box, turned with its part (the game takes the world bounds of this)
-                            c["rot"] = new JArray(rot.x, rot.y, rot.z, rot.w);
-                            c["size"] = Vec(Vector3.Scale(scale, lb.size));
-                        }
-                        list.Add(c);
-                    }
-                    WearNTear w = prefab.GetComponent<WearNTear>();
-                    var info = new JObject { ["colliders"] = list };
-                    if (w != null)
-                    {
-                        info["com"] = Vec(w.m_comOffset);
-                        info["material"] = w.m_materialType.ToString();
-                        info["supports"] = w.m_supports;
-                        info["noSupportWear"] = w.m_noSupportWear;
-                    }
-                    all[prefab.name] = info;
-                }
-                output(new JObject { ["colliders"] = all });
-                return null;
-            });
-
-            Builtin("support", "support [radius=20] [place=look] [filter]: built pieces near a place with the support the game gives them now (and their material's minimum and maximum), weakest first", (a, output, error) =>
-            {
-                float radius = a.Length > 1 && float.TryParse(a[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float rr) ? rr : 20f;
-                if (!Frame(a.Length > 2 ? a[2] : "look", out Vector3 at, out float _, out string err)) { error(err); return null; }
-                string filter = a.Length > 3 ? a[3] : null;
-                var getSupport = HarmonyLib.AccessTools.Method(typeof(WearNTear), "GetSupport");
-                var getProps = HarmonyLib.AccessTools.Method(typeof(WearNTear), "GetMaterialProperties");
-                var rows = new List<KeyValuePair<float, JObject>>();
-                foreach (WearNTear w in UnityEngine.Object.FindObjectsByType<WearNTear>(FindObjectsSortMode.None))
-                {
-                    if (w == null || (w.transform.position - at).sqrMagnitude > radius * radius) continue;
-                    string name = w.gameObject.name.Replace("(Clone)", "").Trim();
-                    if (filter != null && !name.Contains(filter)) continue;
-                    float s = (float)getSupport.Invoke(w, null);
-                    var args = new object[] { 0f, 0f, 0f, 0f };
-                    getProps.Invoke(w, args);
-                    float max = (float)args[0], min = (float)args[1];
-                    rows.Add(new KeyValuePair<float, JObject>(max > 0 ? (s - min) / max : 0f, new JObject { ["piece"] = name, ["support"] = Math.Round(s, 1), ["min"] = min, ["max"] = max,
-                        ["position"] = Vec(w.transform.position), ["health"] = Math.Round(w.GetHealthPercentage() * 100f) }));
-                }
-                output(new JObject { ["pieces"] = new JArray(rows.OrderBy(r => r.Key).Take(60).Select(r => (JToken)r.Value)), ["count"] = rows.Count });
-                return null;
-            });
-
-            Builtin("comfort", "comfort [prefab...]: with prefabs, the comfort level they would give together (under a roof, all within 10 m), each piece's comfort and comfort group, and which count; without, the player's comfort now and the pieces giving it", (a, output, error) =>
-            {
-                var pieces = new List<Piece>();
-                bool real = a.Length < 2;
-                if (real)
-                {
-                    Player p = Player.m_localPlayer;
-                    Piece.GetAllComfortPiecesInRadius(p.transform.position, 10f, pieces);
-                }
-                else
-                    foreach (string name in a.Skip(1))
-                    {
-                        Piece pc = FindPrefab(name)?.GetComponent<Piece>();
-                        if (pc == null) { error($"no piece called '{name}'"); return null; }
-                        pieces.Add(pc);
-                    }
-                // the game's rule (SE_Rested.CalculateComfortLevel): 1, +1 under a roof, + the best of each group; pieces of no group count
-                // once per name
-                var sorted = pieces.OrderBy(pc => (int)pc.m_comfortGroup).ThenByDescending(pc => pc.m_comfort).ThenByDescending(pc => pc.m_name, StringComparer.Ordinal).ToList();
-                int level = 2;
-                var rows = new JArray();
-                for (int i = 0; i < sorted.Count; i++)
-                {
-                    Piece pc = sorted[i], prev = i > 0 ? sorted[i - 1] : null;
-                    bool counts = prev == null || !((pc.m_comfortGroup != 0 && pc.m_comfortGroup == prev.m_comfortGroup) || pc.m_name == prev.m_name);
-                    if (counts) level += pc.m_comfort;
-                    rows.Add($"{Utils.GetPrefabName(pc.gameObject)} ({Localization.instance.Localize(pc.m_name)}): {pc.m_comfort}, group {pc.m_comfortGroup}{(counts ? "" : "  (not counted: its group or kind is already counted)")}");
-                }
-                var result = new JObject { ["level"] = level, ["pieces"] = rows };
-                if (real)
-                {
-                    Player p = Player.m_localPlayer;
-                    result["inShelter"] = p.InShelter();
-                    result["gameSays"] = SE_Rested.CalculateComfortLevel(p);
-                }
-                output(result);
-                return null;
-            });
-
             Builtin("errors", "errors: the new errors and exceptions in the log since the last time you asked (with where they came from)", (a, output, error) =>
             {
                 string path = Path.Combine(Paths.BepInExRootPath, "LogOutput.log");
@@ -250,9 +125,9 @@ namespace ClaudeTools
 
         private long _logSeen;
 
-        private static IEnumerator Fail(Action<string> error, string message) { error(message); return null; }
+        public static IEnumerator Fail(Action<string> error, string message) { error(message); return null; }
 
-        private static string ColorString(Color c) => $"#{(int)(c.r * 255):X2}{(int)(c.g * 255):X2}{(int)(c.b * 255):X2}";
+        public static string ColorString(Color c) => $"#{(int)(c.r * 255):X2}{(int)(c.g * 255):X2}{(int)(c.b * 255):X2}";
 
         private IEnumerator WaitForMod(string name, string version, float seconds, Action<JObject> output, Action<string> error)
         {
@@ -292,16 +167,12 @@ namespace ClaudeTools
             int layer = FreeLayer();
             var root = new GameObject("ClaudeRenderStage");
             root.transform.position = StageSpot;
-            GameObject copy;
-            ZNetView.m_forceDisableInit = true;   // a copy that is not a networked object (nothing is saved or shared)
-            try { copy = Instantiate(prefab, StageSpot, Quaternion.identity, root.transform); }
-            finally { ZNetView.m_forceDisableInit = false; }
+            GameObject copy = Adapter.InstantiateStill(prefab, StageSpot, root.transform);   // a copy that does nothing in the game (nothing is saved or shared)
             try
             {
                 foreach (Collider c in copy.GetComponentsInChildren<Collider>(true)) c.enabled = false;
                 foreach (AudioSource s in copy.GetComponentsInChildren<AudioSource>(true)) s.enabled = false;
                 foreach (Rigidbody rb in copy.GetComponentsInChildren<Rigidbody>(true)) rb.isKinematic = true;
-                foreach (CircleProjector ring in copy.GetComponentsInChildren<CircleProjector>(true)) ring.gameObject.SetActive(false);
                 foreach (Transform t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
                 yield return null;   // let it settle for a frame (some models finish building in Start)
                 foreach (Transform t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;

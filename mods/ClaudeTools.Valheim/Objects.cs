@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using static ClaudeTools.Plugin;
 
-namespace ClaudeTools
+namespace ClaudeTools.Valheim
 {
     /// <summary>
     /// "objects": every object of one prefab in the world, loaded or not (a piece built far away, a mod's leftovers), and removing them.
     /// The game that hosts the world (single player, or the host) knows every object; a client only knows those near the players.
     /// Removing follows the game's cheat rule (single player, the host, or devcommands on) and only takes an exact prefab name.
     /// </summary>
-    public partial class Plugin
+    public partial class ValheimPlugin
     {
         private void RegisterObjectCommands()
         {

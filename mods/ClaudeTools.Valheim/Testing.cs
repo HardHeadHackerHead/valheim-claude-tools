@@ -5,15 +5,16 @@ using System.Reflection;
 using HarmonyLib;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using static ClaudeTools.Plugin;
 
-namespace ClaudeTools
+namespace ClaudeTools.Valheim
 {
     /// <summary>
     /// Commands for testing mods without anyone at the keyboard: what the game shows for a word key, skill levels, the character's saved data,
     /// status effects with their time and carried state, an item's data, dragging items between slots as the inventory window does, and
     /// crafting or upgrading at the station the player has open. The ones that change things only where cheats are allowed.
     /// </summary>
-    public partial class Plugin
+    public partial class ValheimPlugin
     {
         private static readonly FieldInfo CraftRecipe = AccessTools.Field(typeof(InventoryGui), "m_craftRecipe");
         private static readonly FieldInfo CraftUpgrade = AccessTools.Field(typeof(InventoryGui), "m_craftUpgradeItem");
@@ -86,17 +87,6 @@ namespace ClaudeTools
                         ["waiting"] = new JArray(temp.Where(t => t != null).Select(t => RavenTextJson(t, me))),
                         ["nearby"] = new JArray(near.Select(t => RavenTextJson(t, me))),
                     });
-                    return null;
-                });
-
-            Builtin("logtrace", "logtrace <warning|log|error> <on|off>: add the calling code (a stack trace) to the game's warnings (or plain log lines, or errors) " +
-                "in the log, to find what keeps logging a warning; off again when done (traces make the log much longer)", (a, output, error) =>
-                {
-                    if (a.Length < 3) { error("logtrace <warning|log|error> <on|off>"); return null; }
-                    LogType type = a[1].ToLowerInvariant() == "log" ? LogType.Log : a[1].ToLowerInvariant() == "error" ? LogType.Error : LogType.Warning;
-                    bool on = a[2].Equals("on", StringComparison.OrdinalIgnoreCase);
-                    Application.SetStackTraceLogType(type, on ? StackTraceLogType.ScriptOnly : (type == LogType.Error ? StackTraceLogType.ScriptOnly : StackTraceLogType.None));
-                    output(new JObject { ["type"] = type.ToString(), ["traces"] = Application.GetStackTraceLogType(type).ToString() });
                     return null;
                 });
 

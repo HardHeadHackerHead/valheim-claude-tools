@@ -186,7 +186,7 @@ namespace ClaudeTools
                         var names = a.Skip(2).SelectMany(x => x.Split(',')).Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
                         if (names.Count == 0 || names.Any(n => !Compat.IsPackage(n)))
                         {
-                            error("name the mod as Thunderstore does, Namespace-Name (e.g. library get Azumatt-AzuCraftyBoxes): its page is thunderstore.io/c/valheim/p/Namespace/Name");
+                            error($"name the mod as Thunderstore does, Namespace-Name (e.g. library get Azumatt-AzuCraftyBoxes): its page is thunderstore.io/c/{Adapter.Thunderstore ?? "<game>"}/p/Namespace/Name");
                             return null;
                         }
                         List<string> list = Requested();

@@ -5,8 +5,9 @@ using System.Linq;
 using HarmonyLib;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using static ClaudeTools.Plugin;
 
-namespace ClaudeTools
+namespace ClaudeTools.Valheim
 {
     /// <summary>
     /// "tcdoctor": the ground's change records (each zone's _TerrainCompiler: hoe, pickaxe and cultivator work, levelling by mods), and fixing
@@ -16,7 +17,7 @@ namespace ClaudeTools
     /// both; reattach drops this game's copy of an unattached record so the game makes it again with its ground (the saved record stays, and the
     /// game's own duplicate check then keeps the one with the most work); remove takes a record away by its id, on the host.
     /// </summary>
-    public partial class Plugin
+    public partial class ValheimPlugin
     {
         private const string TcDoctorUsage = "tcdoctor [report [at <x> <z>] | reattach | remove <userid:id>... | points <x0> <x1> <z0> <z1> | tilled [radius=60] | " +
             "untill <x0> <x1> <z0> <z1>]: the ground's change records (_TerrainCompiler, one per zone: hoe, pickaxe, cultivator and mods' levelling). report: " +

@@ -39,63 +39,32 @@ namespace ClaudeTools
         }
 
         // ---- game systems: methods that do one job, so mods patching different ones can still clash ----
+        // (each game's own, from its adapter: Valheim's are in mods/ClaudeTools.Valheim/ValheimSystems.cs; none without one)
 
-        internal static readonly string[][] Systems =
-        {
-            new[] { "crafting payment", "Inventory.CountItems", "Inventory.HaveItem", "Inventory.RemoveItem", "Player.HaveRequirementItems", "Player.HaveRequirements",
-                    "Player.ConsumeResources", "Player.GetFirstRequiredItem", "InventoryGui.DoCrafting" },
-            new[] { "recipe list", "InventoryGui.UpdateRecipeList", "InventoryGui.UpdateCraftingPanel", "InventoryGui.AddRecipeToList", "Player.GetAvailableRecipes",
-                    "Player.UpdateKnownRecipesList", "Player.UpdateAvailablePiecesList" },
-            new[] { "inventory size", "Player.SetInventorySize", "InventoryGui.SetInventorySize", "Player.OnSpawned", "Inventory..ctor" },
-            new[] { "inventory slots", "Inventory.FindEmptySlot", "Inventory.HaveEmptySlot", "Inventory.GetEmptySlots", "Inventory.CanAddItem", "Inventory.AddItem",
-                    "Inventory.MoveItemToThis", "Inventory.MoveAll", "InventoryGrid.DropItem" },
-            new[] { "saving items and characters", "Inventory.Save", "Inventory.Load", "ItemDrop.SaveToZDO", "ItemDrop.LoadFromZDO", "Player.Save", "Player.Load",
-                    "PlayerProfile.SavePlayerData", "PlayerProfile.LoadPlayerData", "PlayerProfile.SavePlayerToDisk", "PlayerProfile.LoadPlayerFromDisk" },
-            new[] { "death and tombstones", "Player.OnDeath", "Player.CreateTombStone", "TombStone.*", "Inventory.MoveInventoryToGrave", "Humanoid.UnequipAllItems" },
-            new[] { "equipment", "Humanoid.EquipItem", "Humanoid.UnequipItem", "Humanoid.SetupEquipment", "Humanoid.IsItemEquiped", "Player.QueueEquipAction",
-                    "Player.QueueUnequipAction", "VisEquipment.*" },
-            new[] { "portals and teleporting", "TeleportWorld.*", "Game.ConnectPortals", "ZDOMan.GetPortalList", "Player.TeleportTo", "Teleport.*", "Player.IsTeleportable",
-                    "Inventory.IsTeleportable" },
-            new[] { "containers", "Container.*", "InventoryGui.Show", "InventoryGui.Hide" },
-            new[] { "picking up", "Player.AutoPickup", "Humanoid.Pickup", "ItemDrop.Pickup", "ItemDrop.Interact", "Pickable.*" },
-            new[] { "smelting, cooking and fermenting", "Smelter.*", "CookingStation.*", "Fermenter.*", "Beehive.*" },
-            new[] { "building", "Player.PlacePiece", "Player.TryPlacePiece", "Player.UpdatePlacement", "Player.UpdatePlacementGhost", "Player.SetupPlacementGhost",
-                    "Player.RemovePiece", "Player.CheckCanRemovePiece", "Piece.*", "WearNTear.*" },
-            new[] { "carry weight", "Player.GetMaxCarryWeight", "Inventory.GetTotalWeight", "Inventory.UpdateTotalWeight" },
-            new[] { "food, health and stamina", "Player.UseStamina", "Player.HaveStamina", "Player.UpdateFood", "Player.EatFood", "Player.CanEat", "Player.GetTotalFoodValue",
-                    "Player.SetMaxHealth", "Player.SetMaxStamina", "SEMan.*" },
-            new[] { "skills", "Skills.*" },
-            new[] { "combat and damage", "Character.Damage", "Character.RPC_Damage", "Character.ApplyDamage", "Humanoid.BlockAttack", "Attack.*", "HitData.*" },
-            new[] { "keys and input", "ZInput.*", "PlayerController.TakeInput" },
-            new[] { "inventory screen", "InventoryGui.*", "InventoryGrid.*" },
-            new[] { "map", "Minimap.*" },
-            new[] { "creatures' AI", "BaseAI.*", "MonsterAI.*", "AnimalAI.*", "Tameable.*" },
-            new[] { "spawning", "SpawnSystem.*", "CreatureSpawner.*", "SpawnArea.*" },
-            new[] { "world generation", "ZoneSystem.*", "WorldGenerator.*", "Heightmap.*", "TerrainComp.*" },
-            new[] { "network", "ZNet.*", "ZDOMan.*", "ZRoutedRpc.*", "ZNetView.*" },
-            // everyone adds items and pieces here; stacking postfixes is normal
-            new[] { "registering items and pieces", "ObjectDB.Awake", "ObjectDB.CopyOtherDB", "ZNetScene.Awake", "FejdStartup.Awake", "FejdStartup.SetupObjectDB" },
-        };
+        internal static string[][] Systems = new string[0][];
 
         internal const string Registration = "registering items and pieces";
 
         /// <summary>Systems where two mods doing the same job can cost players items: their overlaps rank first among the ones to check.</summary>
-        internal static readonly HashSet<string> HighStakes = new HashSet<string>
-            { "crafting payment", "inventory size", "inventory slots", "saving items and characters", "death and tombstones", "containers",
-              "smelting, cooking and fermenting" };
+        internal static HashSet<string> HighStakes = new HashSet<string>();
 
         /// <summary>
         /// Methods where a prefix that skips the game's method usually does the job itself (pays, deposits, hands over). Two such prefixes both
         /// run (HarmonyX runs every prefix), so the job is done twice unless the later one reads __runOriginal.
         /// </summary>
-        internal static readonly HashSet<string> DoesTheJob = new HashSet<string>
-        {
-            "Inventory.RemoveItem", "Inventory.RemoveOneItem", "Player.ConsumeResources", "Smelter.Spawn", "Fermenter.DelayedTap",
-            "Fermenter.Tap", "CookingStation.SpawnItem", "Beehive.Extract", "Container.RPC_TakeAllRespons", "Inventory.MoveAll",
-        };
+        internal static HashSet<string> DoesTheJob = new HashSet<string>();
 
         // systems whose overlaps are nearly always window-only input handling (a mod's window blocking the player's keys): not a job done twice
-        private static readonly HashSet<string> NotAJob = new HashSet<string> { "keys and input", "inventory screen", Registration };
+        private static HashSet<string> NotAJob = new HashSet<string>();
+
+        /// <summary>The game's systems (see GameAdapter.Systems), in place of the last game's.</summary>
+        internal static void UseSystems(string[][] systems, IEnumerable<string> highStakes, IEnumerable<string> doesTheJob, IEnumerable<string> notAJob)
+        {
+            Systems = systems ?? new string[0][];
+            HighStakes = new HashSet<string>(highStakes ?? Enumerable.Empty<string>());
+            DoesTheJob = new HashSet<string>(doesTheJob ?? Enumerable.Empty<string>());
+            NotAJob = new HashSet<string>(notAJob ?? Enumerable.Empty<string>());
+        }
 
         internal static string SystemOf(string target)
         {

@@ -31,8 +31,9 @@
     <Compile Include="../../mods/ClaudeTools/Check.cs" Link="Shared/Check.cs" />
     <Compile Include="../../mods/ClaudeTools/Compat.cs" Link="Shared/Compat.cs" />
     <Compile Include="../../mods/ClaudeTools/GameIndex.cs" Link="Shared/GameIndex.cs" />
+    <Compile Include="../../mods/ClaudeTools.Valheim/ValheimSystems.cs" Link="Shared/ValheimSystems.cs" />
     <Compile Include="../Shared/Thunderstore.cs" Link="Shared/Thunderstore.cs" />
-    <EmbeddedResource Include="../../mods/ClaudeTools/Shipped/patchmap.json.gz" LogicalName="library/shipped.json.gz" Condition="Exists('../../mods/ClaudeTools/Shipped/patchmap.json.gz')" />
+    <EmbeddedResource Include="../../mods/ClaudeTools.Valheim/Shipped/patchmap.json.gz" LogicalName="library/shipped.json.gz" Condition="Exists('../../mods/ClaudeTools.Valheim/Shipped/patchmap.json.gz')" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <Reference Include="System.Net.Http" />

@@ -33,10 +33,16 @@ namespace ClaudeTools
             {
                 if (_gameBuild == null || !_gameBuild.IsAlive)
                 {
-                    string managed = Paths.ManagedPath;
+                    string managed = Paths.ManagedPath, fallback = GameVersion();
                     _gameBuild = new Thread(() =>
                     {
-                        try { _game = GameIndex.Build(managed); _gameError = null; }
+                        try
+                        {
+                            GameIndex built = GameIndex.Build(managed);
+                            if (built.Version == "unknown") built.Version = fallback;   // (a game without Valheim's Version class: its adapter's)
+                            _game = built;
+                            _gameError = null;
+                        }
                         catch (Exception e) { _gameError = e.Message; Log?.LogWarning("Could not read the game's code: " + e.Message); }
                     }) { IsBackground = true, Name = "ClaudeTools game index" };
                     _gameBuild.Start();
@@ -53,18 +59,19 @@ namespace ClaudeTools
         private IEnumerator GameSnapshot()
         {
             yield return new WaitForSecondsRealtime(40f);
-            string managed = Paths.ManagedPath, version = null, mvid = null, path = null, failed = null;
+            string managed = Paths.ManagedPath, version = null, mvid = null, path = null, failed = null, fallback = GameVersion();
             JObject snapshot = null, older = null, report = null;
             var worker = new Thread(() =>
             {
                 try
                 {
                     GameIndex.Identify(managed, out version, out mvid);
+                    if (version == "unknown") version = fallback;
                     path = Path.Combine(GameDir, $"methods_{Safe(version)}_{mvid}.json.gz");
                     if (File.Exists(path)) return; // this game version was seen before: nothing new
                     string previous = Directory.Exists(GameDir)
                         ? Directory.GetFiles(GameDir, "methods_*.json.gz").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
-                    GameIndex.Save(GameIndex.Build(managed).Snapshot(), path); // (an index of its own, let go when this ends)
+                    GameIndex.Save(GameIndex.Build(managed, version).Snapshot(), path); // (an index of its own, let go when this ends)
                     if (previous == null) return;
                     snapshot = GameIndex.Load(path);
                     older = GameIndex.Load(previous);
