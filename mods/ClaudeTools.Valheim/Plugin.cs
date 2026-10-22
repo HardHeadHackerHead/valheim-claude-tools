@@ -28,6 +28,7 @@ namespace ClaudeTools.Valheim
         internal static BepInEx.Logging.ManualLogSource Log;
 
         private object _game;   // (a ValheimGame: typed object, so this class loads before Claude Tools does)
+        private bool _gaveUp;
         private HarmonyLib.Harmony _harmony;
 
         private void Awake()
@@ -39,13 +40,25 @@ namespace ClaudeTools.Valheim
 
         private void Update()
         {
-            if (_game == null)
-            {
-                if (CoreLink.Running(Plugin.Guid)) Attach();
-                return;
-            }
+            if (_game == null) { TryAttach(); return; }
             SurveyKey();
             ClawdUpdate();
+        }
+
+        /// <summary>
+        /// Claude Tools is running: hand it the game. A ClaudeTools.dll too old for this mod (the one before the split, with Valheim inside)
+        /// fails here: said once in the log, not every frame.
+        /// </summary>
+        private void TryAttach()
+        {
+            if (_gaveUp || !CoreLink.Running(Plugin.Guid)) return;
+            try { Attach(); }
+            catch (Exception e)
+            {
+                _gaveUp = true;
+                Logger.LogError($"Claude Tools is running, but not a copy this mod can work with ({e.GetBaseException().Message}): " +
+                                "install the ClaudeTools.dll that came with this one, in the same folder");
+            }
         }
 
         /// <summary>Claude Tools is there: the game for it, and Valheim's commands.</summary>
