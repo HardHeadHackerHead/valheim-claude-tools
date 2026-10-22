@@ -19,4 +19,8 @@ ui list
 shot 1280
 ```
 
-then `ui click play` (or what the list shows), `wait 3`, `ui list`, `shot 1280` again, until `status` answers (the player is in the hub).
+then `ui click host` (or what the list shows), `wait 3`, `ui list`, `shot 1280` again, until `status` answers (the player is in the hub).
+
+Tried in the game: `ui click host` goes to character select, then into the hub as host. In character select, clicking a character only
+shows it: pick one with its number key, held two frames (`ui key Digit4 2`: the game picks on the key's release). `ui key Escape` doesn't
+close the menus (they close on an input action that a one-frame key may not trigger): use their buttons (`ui click back`, `ui click ok`).
